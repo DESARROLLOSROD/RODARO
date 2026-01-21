@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copiar archivos de dependencias
 COPY packages/backend/package.json ./
-COPY packages/backend/package-lock.json ./
+
 
 # Instalar dependencias
 RUN npm ci --omit=dev
