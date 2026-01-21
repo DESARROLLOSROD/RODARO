@@ -1,28 +1,135 @@
 /**
  * Parser de datos del lector de rondines
  *
- * Este archivo contiene funciones para parsear diferentes formatos
- * de datos de lectores de rondines/TAGs.
+ * Formato detectado del lector:
+ * - Header: "H YYYYMMDDHHmmss 00 CONTADOR"
+ * - Eventos: "YYYYMMDDHHmmss 31 TAG_HEX_12"
  *
- * IMPORTANTE: Ajustar estas funciones según el protocolo específico
- * del lector que se esté utilizando.
+ * Ejemplo de datos:
+ * H 20260121103926 00 27344
+ * 20260114210613 31 00001437815B
+ * 20260114210917 31 0000014FEC0B
  */
 
 export interface EventoParsed {
   tag: string;
   fechaHora: Date;
+  codigoLector: string;
   datosCrudos: string;
   valido: boolean;
   error?: string;
 }
 
+export interface HeaderDescarga {
+  fechaDescarga: Date;
+  totalEventos: number;
+  datosCrudos: string;
+}
+
 /**
- * Parsea formato estándar: "TAG,YYYY-MM-DD HH:MM:SS"
+ * Parsea el header de descarga
+ * Formato: "H YYYYMMDDHHmmss 00 CONTADOR"
+ */
+export function parsearHeader(linea: string): HeaderDescarga | null {
+  const match = linea.match(/^H\s+(\d{14})\s+\d+\s+(\d+)$/);
+  if (!match) return null;
+
+  return {
+    fechaDescarga: parsearFechaCompacta(match[1]),
+    totalEventos: parseInt(match[2]),
+    datosCrudos: linea
+  };
+}
+
+/**
+ * Parsea una línea de evento del lector
+ * Formato: "YYYYMMDDHHmmss 31 TAG_HEX"
+ */
+export function parsearEvento(linea: string): EventoParsed {
+  const resultado: EventoParsed = {
+    tag: '',
+    fechaHora: new Date(),
+    codigoLector: '',
+    datosCrudos: linea,
+    valido: false
+  };
+
+  // Formato principal: "20260114210613 31 00001437815B"
+  const match = linea.match(/^(\d{14})\s+(\d+)\s+([0-9A-Fa-f]{10,16})$/);
+
+  if (!match) {
+    resultado.error = 'Formato no reconocido';
+    return resultado;
+  }
+
+  resultado.fechaHora = parsearFechaCompacta(match[1]);
+  resultado.codigoLector = match[2];
+  resultado.tag = match[3].toUpperCase();
+  resultado.valido = validarTag(resultado.tag);
+
+  if (!resultado.valido) {
+    resultado.error = `TAG inválido: ${resultado.tag}`;
+  }
+
+  return resultado;
+}
+
+/**
+ * Parsea fecha en formato compacto YYYYMMDDHHmmss
+ */
+export function parsearFechaCompacta(fechaStr: string): Date {
+  const anio = parseInt(fechaStr.substring(0, 4));
+  const mes = parseInt(fechaStr.substring(4, 6)) - 1;
+  const dia = parseInt(fechaStr.substring(6, 8));
+  const hora = parseInt(fechaStr.substring(8, 10));
+  const minuto = parseInt(fechaStr.substring(10, 12));
+  const segundo = parseInt(fechaStr.substring(12, 14));
+
+  return new Date(anio, mes, dia, hora, minuto, segundo);
+}
+
+/**
+ * Parsea un archivo completo de descarga
+ */
+export function parsearDescargaCompleta(contenido: string): {
+  header: HeaderDescarga | null;
+  eventos: EventoParsed[];
+  errores: string[];
+} {
+  const lineas = contenido.split('\n').map(l => l.trim()).filter(l => l);
+  const resultado = {
+    header: null as HeaderDescarga | null,
+    eventos: [] as EventoParsed[],
+    errores: [] as string[]
+  };
+
+  for (const linea of lineas) {
+    // Verificar si es header
+    if (linea.startsWith('H ')) {
+      resultado.header = parsearHeader(linea);
+      continue;
+    }
+
+    // Parsear evento
+    const evento = parsearEvento(linea);
+    if (evento.valido) {
+      resultado.eventos.push(evento);
+    } else if (evento.error) {
+      resultado.errores.push(`Línea: "${linea}" - ${evento.error}`);
+    }
+  }
+
+  return resultado;
+}
+
+/**
+ * Parsea formato CSV legacy: "TAG,YYYY-MM-DD HH:MM:SS"
  */
 export function parsearFormatoCSV(linea: string): EventoParsed {
   const resultado: EventoParsed = {
     tag: '',
     fechaHora: new Date(),
+    codigoLector: '',
     datosCrudos: linea,
     valido: false
   };

@@ -97,46 +97,53 @@ export class LectorService {
 
   /**
    * Procesa los datos recibidos del lector.
-   * IMPORTANTE: Esta función debe adaptarse al formato específico del lector.
    *
-   * Formatos comunes de lectores de rondines:
-   * - Formato 1: "TAG,YYYY-MM-DD HH:MM:SS"
-   * - Formato 2: "TAG TIMESTAMP" (timestamp Unix)
-   * - Formato 3: Datos hexadecimales crudos
+   * Formato detectado del lector:
+   * - Header: "H YYYYMMDDHHmmss 00 CONTADOR"
+   * - Eventos: "YYYYMMDDHHmmss 31 TAG_HEX_12"
    *
-   * Modificar esta función según la documentación del lector.
+   * Ejemplo:
+   * H 20260121103926 00 27344
+   * 20260114210613 31 00001437815B
    */
   private procesarDatosLector(datos: string): void {
     logger.debug(`Datos recibidos: ${datos}`);
 
     try {
-      // Limpiar datos
       const linea = datos.trim();
       if (!linea) return;
 
-      // EJEMPLO: Formato "TAG,YYYY-MM-DD HH:MM:SS"
-      // Ajustar según el formato real del lector
-      const partes = linea.split(',');
-
-      if (partes.length >= 2) {
-        const tag = partes[0].trim().toUpperCase();
-        const fechaHora = partes[1].trim();
-
-        // Validar TAG (típicamente hexadecimal de 8-16 caracteres)
-        if (/^[0-9A-F]{8,16}$/i.test(tag)) {
-          const evento: EventoBuffer = {
-            tag,
-            fecha_hora: this.parsearFecha(fechaHora),
-            datos_crudos: linea
-          };
-
-          this.buffer.push(evento);
-          logger.info(`Evento registrado: TAG=${tag}, Fecha=${evento.fecha_hora}`);
-        } else {
-          logger.warn(`TAG inválido ignorado: ${tag}`);
+      // Ignorar línea de header (empieza con H)
+      if (linea.startsWith('H ')) {
+        const headerMatch = linea.match(/^H\s+(\d{14})\s+\d+\s+(\d+)$/);
+        if (headerMatch) {
+          logger.info(`Header de descarga: Fecha=${headerMatch[1]}, Total eventos=${headerMatch[2]}`);
         }
+        return;
+      }
+
+      // Formato principal: "YYYYMMDDHHmmss 31 TAG_HEX"
+      // Ejemplo: "20260114210613 31 00001437815B"
+      const match = linea.match(/^(\d{14})\s+(\d+)\s+([0-9A-Fa-f]{10,16})$/);
+
+      if (match) {
+        const fechaStr = match[1]; // YYYYMMDDHHmmss
+        const codigoLector = match[2]; // 31
+        const tag = match[3].toUpperCase();
+
+        // Parsear fecha YYYYMMDDHHmmss
+        const fecha = this.parsearFechaCompacta(fechaStr);
+
+        const evento: EventoBuffer = {
+          tag,
+          fecha_hora: fecha.toISOString(),
+          datos_crudos: linea
+        };
+
+        this.buffer.push(evento);
+        logger.info(`Evento: TAG=${tag}, Fecha=${fecha.toLocaleString()}, Lector=${codigoLector}`);
       } else {
-        // Intentar parsear como formato alternativo
+        // Intentar formato alternativo
         this.procesarFormatoAlternativo(linea);
       }
     } catch (error: any) {
@@ -145,14 +152,44 @@ export class LectorService {
   }
 
   /**
+   * Parsea fecha en formato compacto YYYYMMDDHHmmss
+   */
+  private parsearFechaCompacta(fechaStr: string): Date {
+    // fechaStr = "20260114210613"
+    const anio = parseInt(fechaStr.substring(0, 4));
+    const mes = parseInt(fechaStr.substring(4, 6)) - 1; // Meses 0-11
+    const dia = parseInt(fechaStr.substring(6, 8));
+    const hora = parseInt(fechaStr.substring(8, 10));
+    const minuto = parseInt(fechaStr.substring(10, 12));
+    const segundo = parseInt(fechaStr.substring(12, 14));
+
+    return new Date(anio, mes, dia, hora, minuto, segundo);
+  }
+
+  /**
    * Parsear formatos alternativos de lectores
    */
   private procesarFormatoAlternativo(linea: string): void {
+    // Formato alternativo: "YYYYMMDDHHmmss TAG" (sin código de lector)
+    const altMatch = linea.match(/^(\d{14})\s+([0-9A-Fa-f]{10,16})$/);
+    if (altMatch) {
+      const fecha = this.parsearFechaCompacta(altMatch[1]);
+      const tag = altMatch[2].toUpperCase();
+
+      this.buffer.push({
+        tag,
+        fecha_hora: fecha.toISOString(),
+        datos_crudos: linea
+      });
+      logger.info(`Evento (alt): TAG=${tag}`);
+      return;
+    }
+
     // Formato: Solo TAG seguido de timestamp Unix
-    const match = linea.match(/^([0-9A-Fa-f]{8,16})\s+(\d{10,13})$/);
-    if (match) {
-      const tag = match[1].toUpperCase();
-      const timestamp = parseInt(match[2]);
+    const unixMatch = linea.match(/^([0-9A-Fa-f]{8,16})\s+(\d{10,13})$/);
+    if (unixMatch) {
+      const tag = unixMatch[1].toUpperCase();
+      const timestamp = parseInt(unixMatch[2]);
       const fecha = timestamp > 9999999999
         ? new Date(timestamp) // milisegundos
         : new Date(timestamp * 1000); // segundos
@@ -162,19 +199,19 @@ export class LectorService {
         fecha_hora: fecha.toISOString(),
         datos_crudos: linea
       });
-      logger.info(`Evento registrado (alt): TAG=${tag}`);
+      logger.info(`Evento (unix): TAG=${tag}`);
       return;
     }
 
     // Formato: TAG hexadecimal solo (usar hora actual)
-    const tagMatch = linea.match(/^([0-9A-Fa-f]{8,16})$/);
+    const tagMatch = linea.match(/^([0-9A-Fa-f]{10,16})$/);
     if (tagMatch) {
       this.buffer.push({
         tag: tagMatch[1].toUpperCase(),
         fecha_hora: new Date().toISOString(),
         datos_crudos: linea
       });
-      logger.info(`Evento registrado (tag-only): TAG=${tagMatch[1]}`);
+      logger.info(`Evento (tag-only): TAG=${tagMatch[1]}`);
       return;
     }
 
