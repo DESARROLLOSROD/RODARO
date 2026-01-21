@@ -7,7 +7,7 @@ COPY package.json ./
 
 
 # Instalar dependencias
-RUN npm install --omit=dev
+RUN npm install 
 
 # Copiar código fuente
 COPY . .
