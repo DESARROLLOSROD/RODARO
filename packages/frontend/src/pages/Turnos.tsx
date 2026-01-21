@@ -124,6 +124,10 @@ export default function Turnos() {
     // Maria Lopez,2
     // Maria Lopez,5
 
+    // Calcular días del mes seleccionado
+    const [year, month] = bulkMonth.split('-').map(Number);
+    const lastDayOfMonth = endOfMonth(new Date(year, month - 1)).getDate();
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line || line.startsWith('#')) continue;
@@ -138,8 +142,8 @@ export default function Turnos() {
       const [nombreVigilante, diaStr] = parts;
       const dia = parseInt(diaStr);
 
-      if (isNaN(dia) || dia < 1 || dia > 31) {
-        errors.push(`Línea ${i + 1}: Día inválido "${diaStr}"`);
+      if (isNaN(dia) || dia < 1 || dia > lastDayOfMonth) {
+        errors.push(`Línea ${i + 1}: Día inválido "${diaStr}" (el mes tiene ${lastDayOfMonth} días)`);
         continue;
       }
 
@@ -162,7 +166,6 @@ export default function Turnos() {
       }
 
       // Calcular fecha del turno
-      const [year, month] = bulkMonth.split('-').map(Number);
       const fechaInicio = new Date(year, month - 1, dia, 7, 0, 0);
       const fechaFin = addHours(fechaInicio, 24);
 
