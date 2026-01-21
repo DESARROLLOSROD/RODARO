@@ -10,6 +10,7 @@ import { turnosRouter } from './routes/turnos';
 import { rondasRouter } from './routes/rondas';
 import { eventosRouter } from './routes/eventos';
 import { reportesRouter } from './routes/reportes';
+import { festivosRouter } from './routes/festivos';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 
@@ -65,6 +66,7 @@ app.use('/api/turnos', authMiddleware, turnosRouter);
 app.use('/api/rondas', authMiddleware, rondasRouter);
 app.use('/api/eventos', eventosRouter); // Auth especial para agente
 app.use('/api/reportes', authMiddleware, reportesRouter);
+app.use('/api/festivos', authMiddleware, festivosRouter);
 
 // Manejador de errores
 app.use(errorHandler);

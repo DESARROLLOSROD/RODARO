@@ -43,6 +43,14 @@ export interface Turno {
   created_at: string;
 }
 
+export interface Festivo {
+  id: string;
+  fecha: string; // ISO date YYYY-MM-DD
+  descripcion?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Ruta {
   id: string;
   nombre: string;
@@ -135,6 +143,11 @@ export interface CrearTurnoDTO {
 export interface CrearVigilanteDTO {
   nombre: string;
   numero_empleado?: string;
+}
+
+export interface CrearFestivoDTO {
+  fecha: string;
+  descripcion?: string;
 }
 
 // --- Reportes ---

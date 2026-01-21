@@ -121,3 +121,16 @@ export const reportesApi = {
     return fetchApi<{ success: boolean; data: any[] }>(`/reportes/no-realizadas?${query}`);
   }
 };
+
+// API de Festivos
+export const festivosApi = {
+  list: (year?: string) =>
+    fetchApi<{ success: boolean; data: any[] }>(`/festivos${year ? `?year=${year}` : ''}`),
+  create: (data: { fecha: string; descripcion?: string }) =>
+    fetchApi<{ success: boolean; data: any }>('/festivos', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  delete: (id: string) =>
+    fetchApi<{ success: boolean }>(`/festivos/${id}`, { method: 'DELETE' })
+};
