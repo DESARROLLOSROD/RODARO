@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import Card from '../components/Card';
@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import { rutasApi } from '../lib/api';
 
 interface EstacionForm {
+  id: string;
   nombre: string;
   tag: string;
   orden: number;
@@ -20,19 +21,21 @@ interface RutaForm {
   estaciones: EstacionForm[];
 }
 
-const initialForm: RutaForm = {
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+const createInitialForm = (): RutaForm => ({
   nombre: '',
   descripcion: '',
   frecuencia_min: 120,
   estaciones: [
-    { nombre: '', tag: '', orden: 1, tiempo_esperado_seg: 0, tolerancia_seg: 300 }
+    { id: generateId(), nombre: '', tag: '', orden: 1, tiempo_esperado_seg: 0, tolerancia_seg: 300 }
   ]
-};
+});
 
 export default function Rutas() {
   const [showForm, setShowForm] = useState(false);
   const [expandedRuta, setExpandedRuta] = useState<string | null>(null);
-  const [form, setForm] = useState<RutaForm>(initialForm);
+  const [form, setForm] = useState<RutaForm>(createInitialForm);
 
   const queryClient = useQueryClient();
 
@@ -42,47 +45,59 @@ export default function Rutas() {
   });
 
   const createMutation = useMutation({
-    mutationFn: rutasApi.create,
+    mutationFn: (data: RutaForm) => {
+      // Remove the temporary id before sending to API
+      const payload = {
+        ...data,
+        estaciones: data.estaciones.map(({ id, ...rest }) => rest)
+      };
+      return rutasApi.create(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rutas'] });
-      setForm(initialForm);
+      setForm(createInitialForm());
       setShowForm(false);
     }
   });
 
   const rutas = data?.data || [];
 
-  const addEstacion = () => {
-    setForm({
-      ...form,
+  const addEstacion = useCallback(() => {
+    setForm(prev => ({
+      ...prev,
       estaciones: [
-        ...form.estaciones,
+        ...prev.estaciones,
         {
+          id: generateId(),
           nombre: '',
           tag: '',
-          orden: form.estaciones.length + 1,
+          orden: prev.estaciones.length + 1,
           tiempo_esperado_seg: 180,
           tolerancia_seg: 300
         }
       ]
+    }));
+  }, []);
+
+  const removeEstacion = useCallback((index: number) => {
+    setForm(prev => {
+      if (prev.estaciones.length <= 1) return prev;
+
+      const nuevasEstaciones = prev.estaciones
+        .filter((_, i) => i !== index)
+        .map((e, i) => ({ ...e, orden: i + 1 }));
+
+      return { ...prev, estaciones: nuevasEstaciones };
     });
-  };
+  }, []);
 
-  const removeEstacion = (index: number) => {
-    if (form.estaciones.length <= 1) return;
-
-    const nuevasEstaciones = form.estaciones
-      .filter((_, i) => i !== index)
-      .map((e, i) => ({ ...e, orden: i + 1 }));
-
-    setForm({ ...form, estaciones: nuevasEstaciones });
-  };
-
-  const updateEstacion = (index: number, field: keyof EstacionForm, value: any) => {
-    const nuevasEstaciones = [...form.estaciones];
-    nuevasEstaciones[index] = { ...nuevasEstaciones[index], [field]: value };
-    setForm({ ...form, estaciones: nuevasEstaciones });
-  };
+  const updateEstacion = useCallback((index: number, field: keyof Omit<EstacionForm, 'id'>, value: string | number) => {
+    setForm(prev => {
+      const nuevasEstaciones = [...prev.estaciones];
+      nuevasEstaciones[index] = { ...nuevasEstaciones[index], [field]: value };
+      return { ...prev, estaciones: nuevasEstaciones };
+    });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +173,7 @@ export default function Rutas() {
 
               <div className="space-y-3">
                 {form.estaciones.map((estacion, index) => (
-                  <div key={index} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
+                  <div key={estacion.id} className="flex gap-3 items-start bg-gray-50 p-3 rounded-lg">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
                       <span className="text-primary-600 font-medium text-sm">{estacion.orden}</span>
                     </div>

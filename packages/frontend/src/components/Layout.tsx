@@ -44,11 +44,11 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 transform transition-transform lg:transform-none ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900 transform transition-transform lg:transform-none flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Shield className="h-8 w-8 text-primary-500" />
             <span className="text-white font-bold text-lg">Rondines</span>
@@ -61,7 +61,7 @@ export default function Layout() {
           </button>
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -82,7 +82,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-medium">
               {user?.email?.[0]?.toUpperCase()}
