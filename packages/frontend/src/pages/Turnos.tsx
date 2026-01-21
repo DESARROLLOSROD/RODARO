@@ -346,6 +346,7 @@ export default function Turnos() {
             <form
               className="flex gap-4 items-end"
               onSubmit={(e) => {
+                e.preventDefault();
                 createFestivoMutation.mutate({ fecha: festivoFecha, descripcion: festivoDesc });
               }}
             >
