@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "start": "serve dist -s -l ${PORT:-5173}",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "serve": "^14.2.1",
     "@tanstack/react-query": "^5.17.0",
     "date-fns": "^3.2.0",
     "lucide-react": "^0.303.0",
