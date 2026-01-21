@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Plus, Edit2, UserCheck, UserX } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { vigilantesApi } from '../lib/api';
@@ -35,13 +35,6 @@ export default function Vigilantes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vigilantes'] });
       resetForm();
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: vigilantesApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vigilantes'] });
     }
   });
 

@@ -141,7 +141,7 @@ export default function RondaDetalle() {
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
 
             <div className="space-y-6">
-              {detalles.sort((a: any, b: any) => a.orden - b.orden).map((detalle: any, index: number) => (
+              {detalles.sort((a: any, b: any) => a.orden - b.orden).map((detalle: any) => (
                 <div key={detalle.id} className="relative pl-10">
                   {/* Punto */}
                   <div

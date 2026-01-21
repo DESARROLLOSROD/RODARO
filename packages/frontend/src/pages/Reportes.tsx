@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Download, Calendar, TrendingUp } from 'lucide-react';
+import { FileText, Calendar, TrendingUp } from 'lucide-react';
 import Card from '../components/Card';
-import Button from '../components/Button';
-import StatusBadge from '../components/StatusBadge';
 import { reportesApi, vigilantesApi, rutasApi } from '../lib/api';
 
 type TipoReporte = 'diario' | 'vigilante' | 'ruta' | 'no-realizadas';
@@ -30,7 +28,7 @@ export default function Reportes() {
     queryFn: () => rutasApi.list()
   });
 
-  const { data: reporteData, isLoading, refetch } = useQuery({
+  const { data: reporteData, isLoading } = useQuery({
     queryKey: ['reporte', tipoReporte, filtros],
     queryFn: () => {
       switch (tipoReporte) {

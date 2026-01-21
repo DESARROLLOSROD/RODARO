@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, MapPin, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
+import { Plus, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { rutasApi } from '../lib/api';
