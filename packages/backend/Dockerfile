@@ -3,8 +3,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copiar archivos de dependencias
-COPY package.json ./
-COPY package-lock.json ./
+COPY packages/backend/package.json ./
+COPY packages/backend/package-lock.json ./
 
 # Instalar dependencias
 RUN npm ci --omit=dev
