@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(dir /s)",
+      "Bash(powershell -Command \"Get-ChildItem -Recurse | Select-Object FullName, @{Name=''Type''; Expression={if\\($_PSIsContainer\\){''Folder''}else{''File''}}}\")"
+    ]
+  }
+}

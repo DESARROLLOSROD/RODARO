@@ -1,0 +1,21 @@
+{
+  "api": {
+    "url": "https://tu-api.railway.app/api",
+    "token": "tu-token-de-agente"
+  },
+  "lector": {
+    "puerto": "COM3",
+    "baudRate": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  },
+  "intervalo": {
+    "descargaSegundos": 30,
+    "reintentoSegundos": 5
+  },
+  "log": {
+    "nivel": "info",
+    "archivo": "logs/agent.log"
+  }
+}

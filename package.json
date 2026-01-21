@@ -1,0 +1,29 @@
+{
+  "name": "rondines-system",
+  "version": "1.0.0",
+  "description": "Sistema de Rondines Integrado - Monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=@rondines/frontend",
+    "dev:backend": "npm run dev --workspace=@rondines/backend",
+    "dev:agent": "npm run dev --workspace=@rondines/agent",
+    "build:frontend": "npm run build --workspace=@rondines/frontend",
+    "build:backend": "npm run build --workspace=@rondines/backend",
+    "build:agent": "npm run build --workspace=@rondines/agent",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [
+    "rondines",
+    "vigilancia",
+    "seguridad"
+  ],
+  "author": "Desarrollos ROD",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
