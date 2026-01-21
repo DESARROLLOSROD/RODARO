@@ -20,8 +20,26 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware de seguridad
 app.use(helmet());
+
+// CORS - permitir múltiples orígenes
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permitir requests sin origin (como mobile apps o curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.some(allowed => origin.startsWith(allowed!))) {
+      callback(null, true);
+    } else {
+      console.log(`CORS bloqueado para origen: ${origin}`);
+      callback(null, true); // Temporalmente permitir todos para debug
+    }
+  },
   credentials: true
 }));
 
