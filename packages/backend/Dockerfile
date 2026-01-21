@@ -3,7 +3,7 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copiar archivos de dependencias
-COPY packages/backend/package.json ./
+COPY package.json ./
 
 
 # Instalar dependencias
