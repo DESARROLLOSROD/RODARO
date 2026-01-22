@@ -134,3 +134,17 @@ export const festivosApi = {
   delete: (id: string) =>
     fetchApi<{ success: boolean }>(`/festivos/${id}`, { method: 'DELETE' })
 };
+
+// API de Eventos
+export const eventosApi = {
+  descarga: (data: { lector_id: string; eventos: any[]; timestamp_descarga: string }) =>
+    fetchApi<{
+      success: boolean;
+      procesados: number;
+      duplicados: number;
+      rondas_afectadas: number;
+    }>('/eventos/descarga', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+};

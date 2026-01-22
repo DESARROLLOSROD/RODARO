@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { AppError } from '../middleware/errorHandler';
-import { agentAuthMiddleware } from '../middleware/auth';
+import { authMiddleware, agentAuthMiddleware } from '../middleware/auth';
 import { procesarEventos } from '../services/motorRondas';
 import { z } from 'zod';
 
@@ -20,8 +20,15 @@ const descargaSchema = z.object({
   timestamp_descarga: z.string().datetime()
 });
 
-// POST /api/eventos/descarga - Recibir descarga del agente local
-eventosRouter.post('/descarga', agentAuthMiddleware, async (req, res, next) => {
+// POST /api/eventos/descarga - Recibir descarga (Agente o Web)
+eventosRouter.post('/descarga', async (req, res, next) => {
+  // Intentar autenticación por agente primero, luego por usuario
+  const agentToken = req.headers['x-agent-token'];
+  if (agentToken) {
+    return agentAuthMiddleware(req, res, next);
+  }
+  return authMiddleware(req, res, next);
+}, async (req, res, next) => {
   try {
     const validacion = descargaSchema.safeParse(req.body);
 
