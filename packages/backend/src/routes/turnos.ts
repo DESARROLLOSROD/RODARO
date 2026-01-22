@@ -92,11 +92,13 @@ turnosRouter.post('/', async (req, res, next) => {
     const { vigilante_id, ruta_id, inicio, fin } = validacion.data;
 
     // Verificar que no hay turnos solapados para el vigilante
+    // Un solapamiento ocurre si: inicio_existente <= fin_nuevo AND fin_existente >= inicio_nuevo
     const { data: turnosSolapados } = await supabase
       .from('turnos')
       .select('id')
       .eq('vigilante_id', vigilante_id)
-      .or(`and(inicio.lte.${fin},fin.gte.${inicio})`);
+      .lte('inicio', fin)
+      .gte('fin', inicio);
 
     if (turnosSolapados && turnosSolapados.length > 0) {
       throw new AppError('El vigilante ya tiene un turno en este horario', 400, 'TURNO_SOLAPADO');

@@ -670,9 +670,9 @@ export default function Turnos() {
               </div>
 
               {/* Errores */}
-              {bulkError && (
+              {(bulkError || bulkCreateMutation.error) && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg text-sm whitespace-pre-wrap">
-                  {bulkError}
+                  {bulkError || (bulkCreateMutation.error as Error).message}
                 </div>
               )}
 
