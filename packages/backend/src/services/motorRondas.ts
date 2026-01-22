@@ -235,12 +235,16 @@ async function procesarEstacionIntermedia(
   if (ultimoDetalle && ultimoDetalle.fecha_hora) {
     const fechaAnterior = new Date(ultimoDetalle.fecha_hora);
     const fechaActual = new Date(evento.fecha_hora);
-    // Diferencia PUNTO A PUNTO: Tiempo real entre estaciones - Tiempo esperado entre ellas
-    diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - estacion.tiempo_esperado_seg;
+    // Calcular intervalo esperado (diferencia entre tiempos acumulados)
+    const tiempoEsperadoAnterior = ultimoDetalle.estacion?.tiempo_esperado_seg || 0;
+    const tiempoEsperadoIntervalo = estacion.tiempo_esperado_seg - tiempoEsperadoAnterior;
+    // Diferencia PUNTO A PUNTO: Tiempo real entre estaciones - Intervalo esperado entre ellas
+    diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - tiempoEsperadoIntervalo;
   } else if (rondaActiva.inicio) {
-    // Si no hay detalle pero hay inicio de ronda, usamos el inicio
+    // Si no hay detalle pero hay inicio de ronda, usamos el inicio (desde E1)
     const fechaAnterior = new Date(rondaActiva.inicio);
     const fechaActual = new Date(evento.fecha_hora);
+    // Para este caso, el tiempo esperado es directamente el de la estación (desde E1)
     diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - estacion.tiempo_esperado_seg;
   }
 
