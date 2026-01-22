@@ -174,7 +174,9 @@ async function procesarInicioRonda(
   }
 
   // Agregar detalle de E1
-  await agregarDetalleRonda(nuevaRonda.id, estacion, evento, 0);
+  // La diferencia para E1 es el retraso respecto al inicio nominal de la ventana
+  const diferenciaE1 = Math.round((fechaEvento.getTime() - ventanaInicio.getTime()) / 1000);
+  await agregarDetalleRonda(nuevaRonda.id, estacion, evento, diferenciaE1);
   resultado.rondasAfectadas++;
 }
 
@@ -232,6 +234,12 @@ async function procesarEstacionIntermedia(
   let diferenciaSeg = 0;
   if (ultimoDetalle && ultimoDetalle.fecha_hora) {
     const fechaAnterior = new Date(ultimoDetalle.fecha_hora);
+    const fechaActual = new Date(evento.fecha_hora);
+    // Diferencia PUNTO A PUNTO: Tiempo real entre estaciones - Tiempo esperado entre ellas
+    diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - estacion.tiempo_esperado_seg;
+  } else if (rondaActiva.inicio) {
+    // Si no hay detalle pero hay inicio de ronda, usamos el inicio
+    const fechaAnterior = new Date(rondaActiva.inicio);
     const fechaActual = new Date(evento.fecha_hora);
     diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - estacion.tiempo_esperado_seg;
   }

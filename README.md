@@ -136,6 +136,26 @@ npm run build
 
 Los vigilantes trabajan turnos de 24 horas con 48 horas de descanso. Las rondas se esperan cada 2 o 3 horas según la frecuencia configurada en la ruta.
 
+## Operación y Carga de Datos
+
+El sistema permite la gestión automatizada y manual de la información.
+
+### 1. Carga de Rol Mensual (Turnos)
+Para que el sistema sepa cuándo esperar las rondas, es necesario cargar el rol de vigilancia:
+1. Ir a la pestaña **Turnos**.
+2. Clic en **Cargar Rol Mensual**.
+3. Seleccionar el mes y subir el archivo Excel (.xlsx) con la cuadrícula de turnos.
+4. El sistema identificará automáticamente a los vigilantes y los códigos de turno (N, T, DIA, NOCHE).
+5. Revisar la vista previa y **Guardar**.
+
+### 2. Carga de Archivos del Lector (Rondas)
+Si el agente automático no está disponible, se pueden subir las descargas manualmente:
+1. Ir a la pestaña **Rondas**.
+2. Clic en **Cargar Archivo Lector**.
+3. Seleccionar el archivo de texto (.txt) descargado del software del bastón.
+    *   Formato soportado: `YYYYMMDDHHmmss 31 TAG`
+4. El sistema procesará los eventos, ignorará duplicados y actualizará las rondas en tiempo real.
+
 ## API Endpoints
 
 ### Vigilantes
