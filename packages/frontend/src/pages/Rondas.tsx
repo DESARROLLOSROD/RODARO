@@ -32,7 +32,7 @@ export default function Rondas() {
     queryKey: ['rondas', filtros],
     queryFn: () => rondasApi.list({
       ...filtros,
-      limit: '50'
+      limit: '500'
     })
   });
 

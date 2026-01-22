@@ -46,11 +46,11 @@ rondasRouter.get('/', async (req, res, next) => {
     }
 
     if (fecha_inicio) {
-      query = query.gte('inicio', fecha_inicio);
+      query = query.gte('inicio', `${fecha_inicio}T00:00:00`);
     }
 
     if (fecha_fin) {
-      query = query.lte('inicio', fecha_fin);
+      query = query.lte('inicio', `${fecha_fin}T23:59:59.999Z`);
     }
 
     const { data, error, count } = await query;
