@@ -147,6 +147,130 @@ rondasRouter.get('/turno/:turnoId', async (req, res, next) => {
   }
 });
 
+// POST /api/rondas/recalcular-todas - Recalcular diferencias de TODAS las rondas (migración)
+rondasRouter.post('/recalcular-todas', async (req, res, next) => {
+  try {
+    console.log('=== RECALCULANDO TODAS LAS RONDAS ===');
+
+    // Obtener todas las rondas
+    const { data: rondas, error: errorRondas } = await supabase
+      .from('rondas')
+      .select('id, inicio, estatus, ruta_id')
+      .order('created_at', { ascending: false });
+
+    if (errorRondas) throw new AppError(errorRondas.message, 500, 'DB_ERROR');
+
+    let rondasCorregidas = 0;
+    let detallesCorregidos = 0;
+
+    for (const ronda of rondas || []) {
+      // Obtener detalles de la ronda con información de estaciones
+      const { data: detalles, error: errorDetalles } = await supabase
+        .from('ronda_detalle')
+        .select(`
+          id,
+          orden,
+          fecha_hora,
+          diferencia_seg,
+          estatus,
+          estacion:estaciones(
+            id,
+            tiempo_esperado_seg,
+            tolerancia_seg
+          )
+        `)
+        .eq('ronda_id', ronda.id)
+        .order('orden', { ascending: true });
+
+      if (errorDetalles || !detalles || detalles.length === 0) continue;
+
+      let rondaModificada = false;
+      let tieneRetrasados = false;
+
+      for (let i = 0; i < detalles.length; i++) {
+        const detalle = detalles[i] as any;
+        if (!detalle.fecha_hora || !detalle.estacion) continue;
+
+        let nuevaDiferencia: number;
+
+        if (i === 0) {
+          // Primera estación: diferencia es 0 (punto de partida)
+          nuevaDiferencia = 0;
+        } else {
+          // Estaciones intermedias: calcular intervalo punto a punto
+          const detalleAnterior = detalles[i - 1] as any;
+
+          if (detalleAnterior.fecha_hora && detalleAnterior.estacion) {
+            const fechaAnterior = new Date(detalleAnterior.fecha_hora);
+            const fechaActual = new Date(detalle.fecha_hora);
+            const tiempoReal = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000);
+
+            // Calcular intervalo esperado (diferencia entre tiempos acumulados)
+            const tiempoEsperadoAnterior = detalleAnterior.estacion.tiempo_esperado_seg || 0;
+            const tiempoEsperadoActual = detalle.estacion.tiempo_esperado_seg || 0;
+            const intervaloEsperado = tiempoEsperadoActual - tiempoEsperadoAnterior;
+
+            nuevaDiferencia = tiempoReal - intervaloEsperado;
+          } else {
+            nuevaDiferencia = detalle.diferencia_seg || 0;
+          }
+        }
+
+        // Determinar nuevo estatus
+        const tolerancia = detalle.estacion.tolerancia_seg || 300;
+        const nuevoEstatus = Math.abs(nuevaDiferencia) > tolerancia ? 'RETRASADO' : 'A_TIEMPO';
+
+        if (nuevoEstatus === 'RETRASADO') tieneRetrasados = true;
+
+        // Solo actualizar si hay cambios
+        if (detalle.diferencia_seg !== nuevaDiferencia || detalle.estatus !== nuevoEstatus) {
+          await supabase
+            .from('ronda_detalle')
+            .update({ diferencia_seg: nuevaDiferencia, estatus: nuevoEstatus })
+            .eq('id', detalle.id);
+
+          detallesCorregidos++;
+          rondaModificada = true;
+        }
+      }
+
+      // Actualizar estatus de la ronda si es necesario
+      if (rondaModificada) {
+        rondasCorregidas++;
+
+        const { data: estaciones } = await supabase
+          .from('estaciones')
+          .select('id')
+          .eq('ruta_id', ronda.ruta_id)
+          .eq('activa', true);
+
+        const totalEstaciones = estaciones?.length || 0;
+
+        let nuevoEstatusRonda = ronda.estatus;
+        if (ronda.estatus === 'INCOMPLETA' && !tieneRetrasados && detalles.length >= totalEstaciones) {
+          nuevoEstatusRonda = 'COMPLETA';
+        } else if (tieneRetrasados && ronda.estatus === 'COMPLETA') {
+          nuevoEstatusRonda = 'INCOMPLETA';
+        }
+
+        if (nuevoEstatusRonda !== ronda.estatus) {
+          await supabase
+            .from('rondas')
+            .update({ estatus: nuevoEstatusRonda })
+            .eq('id', ronda.id);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Recálculo completado: ${rondasCorregidas} rondas, ${detallesCorregidos} detalles corregidos`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /api/rondas/:id/recalcular - Recalcular estatus de una ronda
 rondasRouter.post('/:id/recalcular', async (req, res, next) => {
   try {

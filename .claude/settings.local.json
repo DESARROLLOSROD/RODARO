@@ -8,7 +8,11 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix TypeScript errors in frontend\n\n- Add vite-env.d.ts for import.meta.env types\n- Remove unused imports in Reportes, Rondas, Rutas, Vigilantes\n- Remove unused index parameter in RondaDetalle\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix CORS to allow multiple origins\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix CORS to allow multiple origins\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(node recalcular_rondas.js:*)",
+      "Bash(node -e:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)"
     ]
   }
 }
