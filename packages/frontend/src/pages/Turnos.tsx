@@ -2,7 +2,8 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addHours, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Calendar, Clock, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Calendar, Clock, Upload, Download, FileSpreadsheet, FileUp } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { turnosApi, vigilantesApi, rutasApi, festivosApi } from '../lib/api';
@@ -244,6 +245,110 @@ export default function Turnos() {
     setBulkPreview(preview);
   };
 
+  const parseExcelGridData = (workbook: XLSX.WorkBook) => {
+    setBulkError('');
+    const sheetName = workbook.SheetNames.find(n => n.includes('VIGILANCIA') || n.includes('ROL')) || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (data.length === 0) {
+      setBulkError('El archivo Excel está vacío');
+      return;
+    }
+
+    const preview: any[] = [];
+    const errors: string[] = [];
+
+    // Buscar el año y mes
+    const [year, month] = bulkMonth.split('-').map(Number);
+    const lastDayOfMonth = endOfMonth(new Date(year, month - 1)).getDate();
+
+    // Buscar la fila de encabezado de días (generalmente tiene números 1, 2, 3...)
+    let dayRowIndex = -1;
+    let daysColOffset = -1;
+
+    for (let i = 0; i < Math.min(data.length, 15); i++) {
+      const row = data[i];
+      if (!row) continue;
+      const firstDayIdx = row.findIndex(cell => cell === 1 || cell === '1');
+      if (firstDayIdx !== -1 && row[firstDayIdx + 1] === 2) {
+        dayRowIndex = i;
+        daysColOffset = firstDayIdx;
+        break;
+      }
+    }
+
+    if (dayRowIndex === -1) {
+      setBulkError('No se encontró la fila de días (1, 2, 3...). Asegúrese de usar el formato correcto.');
+      return;
+    }
+
+    // Usar la primera ruta activa por defecto
+    const ruta = rutas[0];
+    if (!ruta) {
+      setBulkError('No hay rutas activas configuradas');
+      return;
+    }
+
+    // Procesar cada fila buscando nombres de vigilantes
+    for (let i = dayRowIndex + 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row) continue;
+
+      // El nombre suele estar antes de los días (Columna C/D)
+      let nombreVigilante = "";
+      for (let j = Math.max(0, daysColOffset - 3); j < daysColOffset; j++) {
+        if (row[j] && typeof row[j] === 'string' && row[j].trim().length > 3) {
+          nombreVigilante = row[j].trim();
+          break;
+        }
+      }
+
+      if (!nombreVigilante) continue;
+
+      // Buscar vigilante en la DB
+      const vigilante = vigilantes.find((v: any) =>
+        v.nombre.toLowerCase().includes(nombreVigilante.toLowerCase()) ||
+        nombreVigilante.toLowerCase().includes(v.nombre.toLowerCase())
+      );
+
+      if (!vigilante) continue;
+
+      // Procesar cada día disponible en la fila
+      for (let d = 1; d <= lastDayOfMonth; d++) {
+        const colIdx = daysColOffset + d - 1;
+        const cellValue = row[colIdx];
+
+        if (!cellValue) continue;
+
+        const code = String(cellValue).trim().toUpperCase();
+        if (code === 'N' || code === 'T' || code === 'V' || code === 'F') {
+          // Asumimos N = Noche (19:00), T/V/F = Día (07:00) para simplificar si no se especifica
+          const hour = code === 'N' ? 19 : 7;
+          const inicio = new Date(year, month - 1, d, hour, 0, 0);
+
+          preview.push({
+            vigilante_id: vigilante.id,
+            vigilante_nombre: vigilante.nombre,
+            ruta_id: ruta.id,
+            ruta_nombre: ruta.nombre,
+            dia: d,
+            tipo: code === 'N' ? 'NOCTURNO' : 'DIURNO',
+            inicio: inicio.toISOString(),
+            fin: addHours(inicio, 12).toISOString()
+          });
+        }
+      }
+    }
+
+    if (preview.length === 0) {
+      setBulkError('No se detectaron turnos (N o T) en el archivo para el mes seleccionado.');
+    }
+
+    preview.sort((a, b) => a.dia - b.dia || a.vigilante_nombre.localeCompare(b.vigilante_nombre));
+    setBulkPreview(preview);
+  };
+
   // Generar plantilla CSV
   const downloadTemplate = () => {
     const [year, month] = bulkMonth.split('-').map(Number);
@@ -295,11 +400,22 @@ export default function Turnos() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      setBulkData(text);
-      parseBulkData(text);
+      const data = event.target?.result;
+      if (file.name.endsWith('.xlsx')) {
+        const workbook = XLSX.read(data, { type: 'binary' });
+        parseExcelGridData(workbook);
+        setBulkData(`Archivo Excel cargado: ${file.name}`);
+      } else {
+        const text = data as string;
+        setBulkData(text);
+        parseBulkData(text);
+      }
     };
-    reader.readAsText(file);
+    if (file.name.endsWith('.xlsx')) {
+      reader.readAsBinaryString(file);
+    } else {
+      reader.readAsText(file);
+    }
   };
 
   // Guardar turnos masivos
@@ -524,7 +640,7 @@ export default function Turnos() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.txt"
+                    accept=".csv,.txt,.xlsx"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -532,8 +648,8 @@ export default function Turnos() {
                     variant="secondary"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Seleccionar Archivo
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Seleccionar Archivo (Excel o CSV)
                   </Button>
                 </div>
               </div>
