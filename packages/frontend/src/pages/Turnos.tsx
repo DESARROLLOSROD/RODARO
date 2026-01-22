@@ -113,18 +113,24 @@ export default function Turnos() {
   };
 
   // Crear múltiples turnos
+  const [bulkProgress, setBulkProgress] = useState<{ total: number; success: number; failed: number } | null>(null);
+
   const bulkCreateMutation = useMutation({
     mutationFn: async (turnos: any[]) => {
-      const results = [];
-      for (const turno of turnos) {
-        const result = await turnosApi.create(turno);
-        results.push(result);
-      }
+      setBulkProgress({ total: turnos.length, success: 0, failed: 0 });
+      const results = await Promise.allSettled(
+        turnos.map(turno => turnosApi.create(turno))
+      );
+
+      const success = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      setBulkProgress({ total: turnos.length, success, failed });
+
       return results;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['turnos'] });
-      setShowBulkUpload(false);
+      // No cerramos el modal inmediatamente para que el usuario vea el resumen
       setBulkData('');
       setBulkPreview([]);
       setBulkError('');
@@ -296,20 +302,26 @@ export default function Turnos() {
 
       // El nombre suele estar antes de los días (Columna C/D)
       let nombreVigilante = "";
-      for (let j = Math.max(0, daysColOffset - 3); j < daysColOffset; j++) {
-        if (row[j] && typeof row[j] === 'string' && row[j].trim().length > 3) {
-          nombreVigilante = row[j].trim();
-          break;
+      for (let j = 0; j < daysColOffset; j++) {
+        const val = row[j];
+        if (val && typeof val === 'string' && val.trim().length >= 2) {
+          const trimmed = val.trim();
+          if (!/^\d+$/.test(trimmed) && trimmed.length > nombreVigilante.length) {
+            nombreVigilante = trimmed;
+          }
         }
       }
 
       if (!nombreVigilante) continue;
 
-      // Buscar vigilante en la DB
-      const vigilante = vigilantes.find((v: any) =>
-        v.nombre.toLowerCase().includes(nombreVigilante.toLowerCase()) ||
-        nombreVigilante.toLowerCase().includes(v.nombre.toLowerCase())
-      );
+      // Buscar vigilante en la DB con normalización básica
+      const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const normNombre = normalize(nombreVigilante);
+
+      const vigilante = vigilantes.find((v: any) => {
+        const vNombre = normalize(v.nombre);
+        return vNombre.includes(normNombre) || normNombre.includes(vNombre);
+      });
 
       if (!vigilante) continue;
 
@@ -321,9 +333,15 @@ export default function Turnos() {
         if (!cellValue) continue;
 
         const code = String(cellValue).trim().toUpperCase();
-        if (code === 'N' || code === 'T' || code === 'V' || code === 'F') {
-          // Asumimos N = Noche (19:00), T/V/F = Día (07:00) para simplificar si no se especifica
-          const hour = code === 'N' ? 19 : 7;
+        // Aceptamos una variedad de códigos comunes
+        const isNocturno = code === 'N' || code === 'NOCHE' || code === '20';
+        const isDiurno = code === 'T' || code === 'V' || code === 'F' || code === 'D' || code === 'DIA' || code === '08';
+
+        if (isNocturno || isDiurno) {
+          // Si 'D' es ambiguo, lo tratamos como descanso por ahora a menos que sea el único código
+          if (code === 'D') continue;
+
+          const hour = isNocturno ? 19 : 7;
           const inicio = new Date(year, month - 1, d, hour, 0, 0);
 
           preview.push({
@@ -332,7 +350,7 @@ export default function Turnos() {
             ruta_id: ruta.id,
             ruta_nombre: ruta.nombre,
             dia: d,
-            tipo: code === 'N' ? 'NOCTURNO' : 'DIURNO',
+            tipo: isNocturno ? 'NOCTURNO' : 'DIURNO',
             inicio: inicio.toISOString(),
             fin: addHours(inicio, 12).toISOString()
           });
@@ -725,11 +743,42 @@ export default function Turnos() {
                     setBulkData('');
                     setBulkPreview([]);
                     setBulkError('');
+                    setBulkProgress(null);
                   }}
                 >
-                  Cancelar
+                  Cerrar
                 </Button>
               </div>
+
+              {/* Resumen de progreso */}
+              {bulkProgress && (
+                <div className={`p-4 rounded-lg border ${bulkProgress.failed > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+                  <h4 className={`text-sm font-bold mb-1 ${bulkProgress.failed > 0 ? 'text-yellow-800' : 'text-green-800'}`}>
+                    Resultado de la carga
+                  </h4>
+                  <div className="flex gap-4 text-sm mt-2">
+                    <div className="flex flex-col">
+                      <span className="text-gray-500 text-xs">Total</span>
+                      <span className="font-bold">{bulkProgress.total}</span>
+                    </div>
+                    <div className="flex flex-col text-green-700">
+                      <span className="text-gray-500 text-xs">Exitosos</span>
+                      <span className="font-bold">{bulkProgress.success}</span>
+                    </div>
+                    {bulkProgress.failed > 0 && (
+                      <div className="flex flex-col text-red-600">
+                        <span className="text-gray-500 text-xs">Fallidos</span>
+                        <span className="font-bold">{bulkProgress.failed}</span>
+                      </div>
+                    )}
+                  </div>
+                  {bulkProgress.failed > 0 && (
+                    <p className="text-xs text-yellow-700 mt-2">
+                      * Los turnos fallidos probablemente ya existen en el sistema (solapamientos).
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
         )
