@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addHours, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Calendar, Clock, Upload, Download, FileSpreadsheet, FileUp } from 'lucide-react';
+import { Plus, Calendar, Clock, Upload, Download, FileUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -257,7 +257,6 @@ export default function Turnos() {
     }
 
     const preview: any[] = [];
-    const errors: string[] = [];
 
     // Buscar el año y mes
     const [year, month] = bulkMonth.split('-').map(Number);
