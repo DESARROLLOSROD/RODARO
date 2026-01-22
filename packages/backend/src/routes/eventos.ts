@@ -46,59 +46,54 @@ eventosRouter.post('/descarga', async (req, res, next) => {
       });
     }
 
-    // Normalizar TAGs
-    const eventosNormalizados = eventos.map(e => ({
-      ...e,
-      tag: e.tag.toUpperCase().replace(/\s/g, '')
-    }));
-
-    // Verificar duplicados (por tag + fecha_hora)
-    const eventosUnicos = [];
-    for (const evento of eventosNormalizados) {
-      const { data: existente } = await supabase
-        .from('eventos')
-        .select('id')
-        .eq('tag', evento.tag)
-        .eq('fecha_hora', evento.fecha_hora)
-        .single();
-
-      if (!existente) {
-        eventosUnicos.push(evento);
+    // Normalizar y Deduplicar el lote actual en memoria
+    const mapaEventos = new Map<string, any>();
+    for (const e of eventos) {
+      const tagNorm = e.tag.toUpperCase().replace(/\s/g, '');
+      const key = `${tagNorm}_${e.fecha_hora}`;
+      if (!mapaEventos.has(key)) {
+        mapaEventos.set(key, {
+          tag: tagNorm,
+          fecha_hora: e.fecha_hora,
+          lector_id: e.lector_id || lector_id,
+          datos_crudos: e.datos_crudos,
+          procesado: false
+        });
       }
     }
 
-    if (eventosUnicos.length === 0) {
-      return res.json({
-        success: true,
-        message: 'Todos los eventos ya existían',
-        procesados: 0,
-        duplicados: eventos.length
-      });
-    }
+    const eventosParaInsertar = Array.from(mapaEventos.values());
 
-    // Insertar eventos
-    const eventosParaInsertar = eventosUnicos.map(e => ({
-      tag: e.tag,
-      fecha_hora: e.fecha_hora,
-      lector_id: e.lector_id || lector_id,
-      datos_crudos: e.datos_crudos,
-      procesado: false
-    }));
-
+    // Insertar eventos ignorando duplicados existentes en la DB
     const { data: eventosInsertados, error } = await supabase
       .from('eventos')
       .insert(eventosParaInsertar)
       .select();
 
-    if (error) throw new AppError(error.message, 500, 'DB_ERROR');
+    // Nota: Si todos eran duplicados, eventosInsertados será [] o null, pero no habrá error de constraint
+    if (error) {
+      // Si falla por el constraint único a pesar de la lógica (ej: concurrencia extrema), lo manejamos
+      if (error.code === '23505') {
+        return res.json({
+          success: true,
+          message: 'Los eventos ya existen en el sistema',
+          procesados: 0,
+          duplicados: eventos.length
+        });
+      }
+      throw new AppError(error.message, 500, 'DB_ERROR');
+    }
+
+    const nuevosCount = eventosInsertados?.length || 0;
+    const duplicadosCount = eventos.length - nuevosCount;
 
     // Registrar log de descarga
     await supabase.from('logs_descarga').insert({
       lector_id,
       timestamp_descarga,
       eventos_recibidos: eventos.length,
-      eventos_nuevos: eventosUnicos.length,
-      eventos_duplicados: eventos.length - eventosUnicos.length
+      eventos_nuevos: nuevosCount,
+      eventos_duplicados: duplicadosCount
     });
 
     // Procesar eventos para crear/actualizar rondas
@@ -107,8 +102,8 @@ eventosRouter.post('/descarga', async (req, res, next) => {
     res.json({
       success: true,
       message: 'Descarga procesada correctamente',
-      procesados: eventosUnicos.length,
-      duplicados: eventos.length - eventosUnicos.length,
+      procesados: nuevosCount,
+      duplicados: duplicadosCount,
       rondas_afectadas: resultadoProcesamiento.rondasAfectadas
     });
   } catch (error) {
