@@ -13,7 +13,8 @@
       "Bash(node -e:*)",
       "Bash(findstr:*)",
       "Bash(curl:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
