@@ -73,7 +73,7 @@ app.post('/api/admin/recalcular-rondas', async (req, res) => {
         .from('ronda_detalle')
         .select('id, orden, fecha_hora, diferencia_seg, estatus, estacion:estaciones(id, tiempo_esperado_seg, tolerancia_seg)')
         .eq('ronda_id', ronda.id)
-        .order('orden', { ascending: true });
+        .order('fecha_hora', { ascending: true }); // Ordenar por HORA, no por orden de estación
 
       if (!detalles || detalles.length === 0) continue;
 
@@ -85,6 +85,7 @@ app.post('/api/admin/recalcular-rondas', async (req, res) => {
 
         let nuevaDiferencia: number;
         if (i === 0) {
+          // Primer punto visitado: diferencia es 0
           nuevaDiferencia = 0;
         } else {
           const detalleAnterior = detalles[i - 1] as any;
