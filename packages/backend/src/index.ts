@@ -88,10 +88,10 @@ app.post('/api/admin/recalcular-rondas', async (req, res) => {
           nuevaDiferencia = 0;
         } else {
           const detalleAnterior = detalles[i - 1] as any;
-          if (detalleAnterior.fecha_hora && detalleAnterior.estacion) {
+          if (detalleAnterior.fecha_hora) {
             const tiempoReal = Math.round((new Date(detalle.fecha_hora).getTime() - new Date(detalleAnterior.fecha_hora).getTime()) / 1000);
-            const intervaloEsperado = (detalle.estacion.tiempo_esperado_seg || 0) - (detalleAnterior.estacion.tiempo_esperado_seg || 0);
-            nuevaDiferencia = tiempoReal - intervaloEsperado;
+            // Tiempo esperado es el intervalo configurado para esta estación
+            nuevaDiferencia = tiempoReal - (detalle.estacion.tiempo_esperado_seg || 0);
           } else {
             nuevaDiferencia = detalle.diferencia_seg || 0;
           }

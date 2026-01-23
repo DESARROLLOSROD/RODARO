@@ -12,7 +12,8 @@
       "Bash(node recalcular_rondas.js:*)",
       "Bash(node -e:*)",
       "Bash(findstr:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node:*)"
     ]
   }
 }
