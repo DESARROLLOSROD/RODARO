@@ -119,6 +119,10 @@ export const reportesApi = {
   noRealizadas: (params: { fecha_inicio: string; fecha_fin: string; vigilante_id?: string }) => {
     const query = new URLSearchParams(params as any).toString();
     return fetchApi<{ success: boolean; data: any[] }>(`/reportes/no-realizadas?${query}`);
+  },
+  estadisticas: (params: { mes?: string; fecha_inicio?: string; fecha_fin?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return fetchApi<{ success: boolean; data: any[]; periodo: any }>(`/reportes/estadisticas?${query}`);
   }
 };
 

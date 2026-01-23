@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { FileText, Calendar, TrendingUp } from 'lucide-react';
+import { FileText, Calendar, TrendingUp, BarChart3 } from 'lucide-react';
 import Card from '../components/Card';
 import { reportesApi, vigilantesApi, rutasApi } from '../lib/api';
 
-type TipoReporte = 'diario' | 'vigilante' | 'ruta' | 'no-realizadas';
+type TipoReporte = 'diario' | 'vigilante' | 'ruta' | 'no-realizadas' | 'estadisticas';
 
 export default function Reportes() {
   const [tipoReporte, setTipoReporte] = useState<TipoReporte>('diario');
+  const [filtroEstadisticas, setFiltroEstadisticas] = useState<'mes' | 'rango'>('mes');
   const [filtros, setFiltros] = useState({
     fecha: format(new Date(), 'yyyy-MM-dd'),
     fecha_inicio: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
     fecha_fin: format(new Date(), 'yyyy-MM-dd'),
     vigilante_id: '',
-    ruta_id: ''
+    ruta_id: '',
+    mes: format(new Date(), 'yyyy-MM')
   });
 
   const { data: vigilantesData } = useQuery({
@@ -46,6 +48,15 @@ export default function Reportes() {
             fecha_fin: filtros.fecha_fin,
             vigilante_id: filtros.vigilante_id || undefined
           });
+        case 'estadisticas':
+          if (filtroEstadisticas === 'mes') {
+            return reportesApi.estadisticas({ mes: filtros.mes });
+          } else {
+            return reportesApi.estadisticas({
+              fecha_inicio: filtros.fecha_inicio,
+              fecha_fin: filtros.fecha_fin
+            });
+          }
         default:
           return null;
       }
@@ -53,7 +64,8 @@ export default function Reportes() {
     enabled: tipoReporte === 'diario' ||
              (tipoReporte === 'vigilante' && !!filtros.vigilante_id) ||
              (tipoReporte === 'ruta' && !!filtros.ruta_id) ||
-             tipoReporte === 'no-realizadas'
+             tipoReporte === 'no-realizadas' ||
+             tipoReporte === 'estadisticas'
   });
 
   const vigilantes = vigilantesData?.data || [];
@@ -182,6 +194,69 @@ export default function Reportes() {
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
               />
             </div>
+          </>
+        );
+
+      case 'estadisticas':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFiltroEstadisticas('mes')}
+                  className={`px-3 py-2 rounded-lg text-sm ${
+                    filtroEstadisticas === 'mes'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Mes
+                </button>
+                <button
+                  onClick={() => setFiltroEstadisticas('rango')}
+                  className={`px-3 py-2 rounded-lg text-sm ${
+                    filtroEstadisticas === 'rango'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Rango de fechas
+                </button>
+              </div>
+            </div>
+            {filtroEstadisticas === 'mes' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
+                <input
+                  type="month"
+                  value={filtros.mes}
+                  onChange={(e) => setFiltros({ ...filtros, mes: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+                  <input
+                    type="date"
+                    value={filtros.fecha_inicio}
+                    onChange={(e) => setFiltros({ ...filtros, fecha_inicio: e.target.value })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+                  <input
+                    type="date"
+                    value={filtros.fecha_fin}
+                    onChange={(e) => setFiltros({ ...filtros, fecha_fin: e.target.value })}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                </div>
+              </>
+            )}
           </>
         );
     }
@@ -383,6 +458,69 @@ export default function Reportes() {
             )}
           </div>
         );
+
+      case 'estadisticas':
+        const estadisticas = Array.isArray(reporteData.data) ? reporteData.data : [];
+        const periodo = (reporteData as any)?.periodo;
+        return (
+          <div className="space-y-4">
+            {periodo && (
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                Período: {format(new Date(periodo.inicio), "d MMM yyyy", { locale: es })} - {format(new Date(periodo.fin), "d MMM yyyy", { locale: es })}
+              </div>
+            )}
+
+            {estadisticas.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Vigilante</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Turno</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Días</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Rondas Per.</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Rondas x Día</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Completas</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Incompletas</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Rendimiento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {estadisticas.map((est: any, idx: number) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm font-medium">{est.vigilante}</td>
+                        <td className="py-3 px-4 text-sm text-center">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            est.turno === 'DIURNO'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-indigo-100 text-indigo-800'
+                          }`}>
+                            {est.turno}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-center">{est.dias}</td>
+                        <td className="py-3 px-4 text-sm text-center font-medium">{est.rondas_periodo}</td>
+                        <td className="py-3 px-4 text-sm text-center">{est.rondas_por_dia}</td>
+                        <td className="py-3 px-4 text-sm text-center text-green-600 font-medium">{est.rondas_completas}</td>
+                        <td className="py-3 px-4 text-sm text-center text-yellow-600">{est.rondas_incompletas}</td>
+                        <td className="py-3 px-4 text-sm text-center">
+                          <span className={`font-bold ${
+                            est.rendimiento >= 80 ? 'text-green-600' :
+                            est.rendimiento >= 60 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {est.rendimiento}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center py-8 text-gray-500">No hay datos de estadísticas para este período</p>
+            )}
+          </div>
+        );
     }
   };
 
@@ -400,7 +538,8 @@ export default function Reportes() {
             { id: 'diario', label: 'Diario', icon: Calendar },
             { id: 'vigilante', label: 'Por Vigilante', icon: TrendingUp },
             { id: 'ruta', label: 'Por Ruta', icon: TrendingUp },
-            { id: 'no-realizadas', label: 'No Realizadas', icon: FileText }
+            { id: 'no-realizadas', label: 'No Realizadas', icon: FileText },
+            { id: 'estadisticas', label: 'Estadísticas', icon: BarChart3 }
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}

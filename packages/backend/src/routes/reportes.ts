@@ -283,6 +283,126 @@ reportesRouter.get('/ruta/:id', async (req, res, next) => {
   }
 });
 
+// GET /api/reportes/estadisticas - Estadísticas por vigilante y turno
+reportesRouter.get('/estadisticas', async (req, res, next) => {
+  try {
+    const { fecha_inicio, fecha_fin, mes } = req.query;
+
+    let inicioFiltro: string;
+    let finFiltro: string;
+
+    if (mes) {
+      // Formato: YYYY-MM
+      const [year, month] = (mes as string).split('-').map(Number);
+      inicioFiltro = new Date(year, month - 1, 1).toISOString();
+      finFiltro = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
+    } else if (fecha_inicio && fecha_fin) {
+      inicioFiltro = `${fecha_inicio}T00:00:00.000Z`;
+      finFiltro = `${fecha_fin}T23:59:59.999Z`;
+    } else {
+      // Por defecto: mes actual
+      const now = new Date();
+      inicioFiltro = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      finFiltro = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+    }
+
+    // Obtener todos los turnos con sus rondas en el período
+    const { data: turnos, error } = await supabase
+      .from('turnos')
+      .select(`
+        id,
+        inicio,
+        fin,
+        vigilante:vigilantes(id, nombre),
+        ruta:rutas(id, nombre, frecuencia_min),
+        rondas(id, estatus)
+      `)
+      .gte('inicio', inicioFiltro)
+      .lte('inicio', finFiltro)
+      .order('inicio', { ascending: true });
+
+    if (error) throw new AppError(error.message, 500, 'DB_ERROR');
+
+    // Agrupar por vigilante y tipo de turno (DIURNO/NOCTURNO)
+    const estadisticas: Record<string, any> = {};
+
+    turnos?.forEach((turno: any) => {
+      const vigilanteId = turno.vigilante?.id;
+      const vigilanteNombre = turno.vigilante?.nombre || 'SIN VIGILANTE';
+
+      // Determinar tipo de turno basado en hora de inicio
+      const horaInicio = new Date(turno.inicio).getHours();
+      const tipoTurno = (horaInicio >= 6 && horaInicio < 18) ? 'DIURNO' : 'NOCTURNO';
+
+      const key = `${vigilanteId || 'sin-vigilante'}-${tipoTurno}`;
+
+      if (!estadisticas[key]) {
+        estadisticas[key] = {
+          vigilante_id: vigilanteId,
+          vigilante: vigilanteNombre,
+          turno: tipoTurno,
+          dias: new Set(),
+          rondas_periodo: 0,
+          rondas_completas: 0,
+          rondas_incompletas: 0,
+          rondas_invalidas: 0,
+          rondas_no_realizadas: 0
+        };
+      }
+
+      // Agregar día único
+      const fechaTurno = new Date(turno.inicio).toISOString().split('T')[0];
+      estadisticas[key].dias.add(fechaTurno);
+
+      // Contar rondas
+      const rondas = turno.rondas || [];
+      estadisticas[key].rondas_periodo += rondas.length;
+      estadisticas[key].rondas_completas += rondas.filter((r: any) => r.estatus === 'COMPLETA').length;
+      estadisticas[key].rondas_incompletas += rondas.filter((r: any) => r.estatus === 'INCOMPLETA').length;
+      estadisticas[key].rondas_invalidas += rondas.filter((r: any) => r.estatus === 'INVALIDA').length;
+      estadisticas[key].rondas_no_realizadas += rondas.filter((r: any) => r.estatus === 'NO_REALIZADA').length;
+    });
+
+    // Convertir a array y calcular métricas finales
+    const resultado = Object.values(estadisticas).map((stat: any) => {
+      const dias = stat.dias.size;
+      const rondasPorDia = dias > 0 ? Math.round((stat.rondas_periodo / dias) * 100) / 100 : 0;
+      const rendimiento = stat.rondas_periodo > 0
+        ? Math.round((stat.rondas_completas / stat.rondas_periodo) * 10000) / 100
+        : 0;
+
+      return {
+        vigilante_id: stat.vigilante_id,
+        vigilante: stat.vigilante,
+        turno: stat.turno,
+        dias,
+        rondas_periodo: stat.rondas_periodo,
+        rondas_por_dia: rondasPorDia,
+        rondas_completas: stat.rondas_completas,
+        rondas_incompletas: stat.rondas_incompletas + stat.rondas_invalidas + stat.rondas_no_realizadas,
+        rendimiento
+      };
+    });
+
+    // Ordenar por vigilante y turno
+    resultado.sort((a, b) => {
+      if (a.vigilante !== b.vigilante) return a.vigilante.localeCompare(b.vigilante);
+      return a.turno.localeCompare(b.turno);
+    });
+
+    res.json({
+      success: true,
+      data: resultado,
+      periodo: {
+        inicio: inicioFiltro,
+        fin: finFiltro
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/reportes/no-realizadas - Rondas no realizadas
 reportesRouter.get('/no-realizadas', async (req, res, next) => {
   try {

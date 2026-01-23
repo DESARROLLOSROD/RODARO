@@ -6,7 +6,8 @@ import {
   AlertCircle,
   XCircle,
   Clock,
-  TrendingUp
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 import {
   PieChart,
@@ -31,14 +32,21 @@ const COLORS = {
 
 export default function Dashboard() {
   const hoy = format(new Date(), 'yyyy-MM-dd');
+  const mesActual = format(new Date(), 'yyyy-MM');
 
   const { data: reporteDiario, isLoading } = useQuery({
     queryKey: ['reporte-diario', hoy],
     queryFn: () => reportesApi.diario(hoy)
   });
 
+  const { data: estadisticasData, isLoading: isLoadingEstadisticas } = useQuery({
+    queryKey: ['estadisticas-mes', mesActual],
+    queryFn: () => reportesApi.estadisticas({ mes: mesActual })
+  });
+
   const resumen = reporteDiario?.data?.resumen;
   const turnos = reporteDiario?.data?.turnos || [];
+  const estadisticas = estadisticasData?.data || [];
 
   const pieData = resumen ? [
     { name: 'Completas', value: turnos.reduce((acc: number, t: any) => acc + t.rondas_completas, 0), color: COLORS.COMPLETA },
@@ -276,6 +284,70 @@ export default function Dashboard() {
           </div>
         ) : (
           <p className="text-gray-500 text-center py-8">No hay turnos activos hoy</p>
+        )}
+      </Card>
+
+      {/* Estadísticas del mes */}
+      <Card
+        title={
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary-600" />
+            <span>Estadísticas del Mes ({format(new Date(), 'MMMM yyyy', { locale: es })})</span>
+          </div>
+        }
+      >
+        {isLoadingEstadisticas ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" />
+          </div>
+        ) : estadisticas.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Vigilante</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Turno</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Días</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Rondas</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">x Día</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Completas</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Incompletas</th>
+                  <th className="text-center py-3 px-4 text-sm font-medium text-gray-600">Rendimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {estadisticas.map((est: any, idx: number) => (
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 text-sm font-medium">{est.vigilante}</td>
+                    <td className="py-3 px-4 text-sm text-center">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        est.turno === 'DIURNO'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        {est.turno}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-center">{est.dias}</td>
+                    <td className="py-3 px-4 text-sm text-center font-medium">{est.rondas_periodo}</td>
+                    <td className="py-3 px-4 text-sm text-center text-gray-500">{est.rondas_por_dia}</td>
+                    <td className="py-3 px-4 text-sm text-center text-green-600 font-medium">{est.rondas_completas}</td>
+                    <td className="py-3 px-4 text-sm text-center text-yellow-600">{est.rondas_incompletas}</td>
+                    <td className="py-3 px-4 text-sm text-center">
+                      <span className={`font-bold ${
+                        est.rendimiento >= 80 ? 'text-green-600' :
+                        est.rendimiento >= 60 ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {est.rendimiento}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">No hay estadísticas disponibles para este mes</p>
         )}
       </Card>
     </div>
