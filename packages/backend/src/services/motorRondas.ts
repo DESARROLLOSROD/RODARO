@@ -120,27 +120,28 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
 
         if (rondasAbiertas && rondasAbiertas.length > 0) {
           const rondaAbierta = rondasAbiertas[0];
-          // Si la ronda abierta tiene más de unos minutos o ya tiene detalles, asumimos que este E1 es el cierre
-          // Para evitar "rebotes" de E1 (doble lectura al inicio), verificamos tiempo
           const inicioRonda = new Date(rondaAbierta.inicio || rondaAbierta.created_at);
           const diffSegudos = (fechaEvento.getTime() - inicioRonda.getTime()) / 1000;
 
           if (diffSegudos > 60) { // Si pasaron más de 60 segundos
-            // VALIDACIÓN ANTI-ZOMBIE: 
-            // Si la ronda abierta tiene más de 4 horas (14400s), asumimos que es una ronda olvidada.
-            // En ese caso, CERRAMOS la anterior (como incompleta/abandonada) y permitimos que este evento inicie una NUEVA.
-            if (diffSegudos < 14400) {
-              esInicio = false;
-              // Es cierre normal, lo tratamos como estación intermedia (que finaliza)
-              await procesarEstacionIntermedia(evento, estacion, turno, resultado);
-            } else {
-              // Ronda Zombie detectada. La cerramos forzosamente.
-              // Usamos la fecha del evento actual o la ventana fin para cerrarla? 
-              // Mejor la fecha actual para que quede registro de cuándo se "detectó" el cierre.
-              // El estatus será INCOMPLETA porque le faltará el cierre E1 válido (este E1 es de la nueva).
-              await finalizarRonda(rondaAbierta.id, new Date(inicioRonda.getTime() + 14400000).toISOString(), estacion.ruta_id); // Cerramos con tiempo límite teórica
+            // VALIDACIÓN BASADA EN VENTANAS:
+            // Calculamos en qué ventana cae este evento
+            const frecuenciaMs = (estacion.ruta.frecuencia_min || 120) * 60 * 1000;
+            const inicioTurno = new Date(turno.inicio);
+            const numeroVentanaActual = Math.floor((fechaEvento.getTime() - inicioTurno.getTime()) / frecuenciaMs);
+            const numeroVentanaRonda = Math.floor((inicioRonda.getTime() - inicioTurno.getTime()) / frecuenciaMs);
 
-              // Dejamos esInicio = true, por lo que el código de abajo creará una NUEVA ronda.
+            // Si este evento E1 pertenece a una ventana POSTERIOR a la de la ronda abierta,
+            // asumimos que el guardia está iniciando una NUEVA ronda y la anterior se quedó abierta por error.
+            if (numeroVentanaActual > numeroVentanaRonda) {
+              // Ronda Abandonada detectada. La cerramos forzosamente.
+              const fechaCierreForzado = new Date(inicioRonda.getTime() + (frecuenciaMs * 0.9)).toISOString(); // Cierre estimado al final de su ventana
+              await finalizarRonda(rondaAbierta.id, fechaCierreForzado, estacion.ruta_id);
+              // Dejamos esInicio = true, para crear la nueva ronda abajo.
+            } else {
+              // Sigue en la misma ventana, es un cierre normal (E1 de salida)
+              esInicio = false;
+              await procesarEstacionIntermedia(evento, estacion, turno, resultado);
             }
           }
         }

@@ -55,8 +55,9 @@ async function debugDatos3() {
     // It doesn't return the *status* of rounds directly, but it updates DB.
 
     // Let's filter for just the first day to keep it fast and focused
-    const eventosDia1 = eventos.filter(e => e.fecha_hora.startsWith('2026-01-01'));
-    console.log(`Eventos Dia 1: ${eventosDia1.length}`);
+    // Let's filter for just the first day to keep it fast and focused
+    const eventosDia1 = eventos.filter(e => e.fecha_hora.startsWith('2026-01-14'));
+    console.log(`Eventos Dia 14: ${eventosDia1.length}`);
 
     // We need to fetch Turnos/Estaciones for this to work.
     // Assuming they exist.
@@ -68,8 +69,8 @@ async function debugDatos3() {
     const { data: rondas } = await supabase
         .from('rondas')
         .select('*, detalles:ronda_detalle(*)')
-        .gte('inicio', '2026-01-01T00:00:00Z')
-        .lte('inicio', '2026-01-01T23:59:59Z');
+        .gte('inicio', '2026-01-14T00:00:00Z')
+        .lte('inicio', '2026-01-14T23:59:59Z');
 
     if (rondas) {
         rondas.forEach(r => {
