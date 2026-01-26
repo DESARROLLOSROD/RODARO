@@ -105,11 +105,40 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
 
       const turno = turnosActivos[0];
 
-      // Si es estación 1, puede ser inicio de ronda
+      // Si es estación 1, verificamos si es inicio o fin de ronda
+      let esInicio = true;
       if (estacion.orden === 1) {
-        await procesarInicioRonda(evento, estacion, turno, resultado);
-      } else {
-        await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+        // Verificar si ya hay una ronda abierta que necesite cierre
+        const { data: rondasAbiertas } = await supabase
+          .from('rondas')
+          .select('id, inicio, created_at')
+          .eq('turno_id', turno.id)
+          .eq('ruta_id', estacion.ruta_id)
+          .is('fin', null)
+          .order('inicio', { ascending: false })
+          .limit(1);
+
+        if (rondasAbiertas && rondasAbiertas.length > 0) {
+          const rondaAbierta = rondasAbiertas[0];
+          // Si la ronda abierta tiene más de unos minutos o ya tiene detalles, asumimos que este E1 es el cierre
+          // Para evitar "rebotes" de E1 (doble lectura al inicio), verificamos tiempo
+          const inicioRonda = new Date(rondaAbierta.inicio || rondaAbierta.created_at);
+          const diffSegudos = (fechaEvento.getTime() - inicioRonda.getTime()) / 1000;
+
+          if (diffSegudos > 60) { // Si pasaron más de 60 segundos, es cierre
+            esInicio = false;
+            // Es cierre, lo tratamos como estación intermedia (que finaliza)
+            await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+          }
+        }
+      }
+
+      if (esInicio) {
+        if (estacion.orden === 1) {
+          await procesarInicioRonda(evento, estacion, turno, resultado);
+        } else {
+          await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+        }
       }
     }
 
@@ -247,6 +276,18 @@ async function procesarEstacionIntermedia(
     const fechaAnterior = new Date(rondaActiva.inicio);
     const fechaActual = new Date(evento.fecha_hora);
     diferenciaSeg = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000) - estacion.tiempo_esperado_seg;
+  }
+
+  // VALIDACIÓN TEMPORAL ESTRICTA
+  // Si el evento es ANTERIOR al inicio de la ronda, es un error (basura histórica o desorden grave)
+  if (rondaActiva.inicio) {
+    const inicioRonda = new Date(rondaActiva.inicio);
+    if (new Date(evento.fecha_hora) < inicioRonda) {
+      // Ignorar evento para esta ronda
+      // Podríamos crear una ronda INVALIDA separada, o simplemente loguearlo
+      resultado.errores.push(`Evento ignorado por ser anterior al inicio de ronda activa: ${evento.fecha_hora} < ${rondaActiva.inicio}`);
+      return;
+    }
   }
 
   // Agregar detalle
