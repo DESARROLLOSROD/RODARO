@@ -141,7 +141,11 @@ export default function RondaDetalle() {
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
 
             <div className="space-y-6">
-              {detalles.sort((a: any, b: any) => a.orden - b.orden).map((detalle: any, index: number) => {
+              {detalles.sort((a: any, b: any) => {
+                if (!a.fecha_hora) return 1;
+                if (!b.fecha_hora) return -1;
+                return new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime();
+              }).map((detalle: any, index: number) => {
                 const anterior = index > 0 ? detalles[index - 1] : null;
                 const intervalS = (anterior && anterior.fecha_hora && detalle.fecha_hora)
                   ? Math.round((new Date(detalle.fecha_hora).getTime() - new Date(anterior.fecha_hora).getTime()) / 1000)
@@ -151,10 +155,10 @@ export default function RondaDetalle() {
                   <div key={detalle.id} className="relative pl-10">
                     <div
                       className={`absolute left-2 w-5 h-5 rounded-full border-2 ${detalle.estatus === 'A_TIEMPO'
-                          ? 'bg-green-500 border-green-500'
-                          : detalle.estatus === 'RETRASADO'
-                            ? 'bg-yellow-500 border-yellow-500'
-                            : 'bg-gray-300 border-gray-300'
+                        ? 'bg-green-500 border-green-500'
+                        : detalle.estatus === 'RETRASADO'
+                          ? 'bg-yellow-500 border-yellow-500'
+                          : 'bg-gray-300 border-gray-300'
                         }`}
                     />
 
@@ -194,10 +198,10 @@ export default function RondaDetalle() {
                         </div>
                         <div>
                           <span className={`ml-2 font-medium ${detalle.diferencia_seg === null
-                              ? 'text-gray-400'
-                              : Math.abs(detalle.diferencia_seg) > (detalle.estacion?.tolerancia_seg || 300)
-                                ? 'text-red-600'
-                                : (detalle.diferencia_seg > 0 ? 'text-yellow-600' : 'text-green-600')
+                            ? 'text-gray-400'
+                            : Math.abs(detalle.diferencia_seg) > (detalle.estacion?.tolerancia_seg || 300)
+                              ? 'text-red-600'
+                              : (detalle.diferencia_seg > 0 ? 'text-yellow-600' : 'text-green-600')
                             }`}>
                             {detalle.diferencia_seg !== null && detalle.diferencia_seg !== 0
                               ? formatDiferencia(detalle.diferencia_seg)
