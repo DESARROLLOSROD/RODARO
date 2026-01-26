@@ -141,11 +141,8 @@ export default function RondaDetalle() {
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
 
             <div className="space-y-6">
-              {detalles.sort((a: any, b: any) => {
-                if (!a.fecha_hora) return 1;
-                if (!b.fecha_hora) return -1;
-                return new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime();
-              }).map((detalle: any, index: number) => {
+              {detalles.sort((a: any, b: any) => a.orden - b.orden).map((detalle: any, index: number) => {
+                const anterior = index > 0 ? detalles[index - 1] : null;
                 const anterior = index > 0 ? detalles[index - 1] : null;
                 const intervalS = (anterior && anterior.fecha_hora && detalle.fecha_hora)
                   ? Math.round((new Date(detalle.fecha_hora).getTime() - new Date(anterior.fecha_hora).getTime()) / 1000)
