@@ -48,8 +48,13 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
 
   try {
     // Agrupar eventos por TAG
+    // IMPORTANTE: Ordenar eventos por fecha antes de agrupar para asegurar procesamiento cronológico
+    const eventosOrdenados = [...eventos].sort((a, b) =>
+      new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
+    );
+
     const eventosPorTag = new Map<string, Evento[]>();
-    for (const evento of eventos) {
+    for (const evento of eventosOrdenados) {
       const lista = eventosPorTag.get(evento.tag) || [];
       lista.push(evento);
       eventosPorTag.set(evento.tag, lista);
@@ -76,7 +81,7 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
     }
 
     // Procesar cada evento
-    for (const evento of eventos) {
+    for (const evento of eventosOrdenados) {
       const estacion = estacionPorTag.get(evento.tag);
       if (!estacion) {
         // TAG no registrado, ignorar
