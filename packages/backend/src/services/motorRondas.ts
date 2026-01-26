@@ -125,10 +125,23 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
           const inicioRonda = new Date(rondaAbierta.inicio || rondaAbierta.created_at);
           const diffSegudos = (fechaEvento.getTime() - inicioRonda.getTime()) / 1000;
 
-          if (diffSegudos > 60) { // Si pasaron más de 60 segundos, es cierre
-            esInicio = false;
-            // Es cierre, lo tratamos como estación intermedia (que finaliza)
-            await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+          if (diffSegudos > 60) { // Si pasaron más de 60 segundos
+            // VALIDACIÓN ANTI-ZOMBIE: 
+            // Si la ronda abierta tiene más de 4 horas (14400s), asumimos que es una ronda olvidada.
+            // En ese caso, CERRAMOS la anterior (como incompleta/abandonada) y permitimos que este evento inicie una NUEVA.
+            if (diffSegudos < 14400) {
+              esInicio = false;
+              // Es cierre normal, lo tratamos como estación intermedia (que finaliza)
+              await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+            } else {
+              // Ronda Zombie detectada. La cerramos forzosamente.
+              // Usamos la fecha del evento actual o la ventana fin para cerrarla? 
+              // Mejor la fecha actual para que quede registro de cuándo se "detectó" el cierre.
+              // El estatus será INCOMPLETA porque le faltará el cierre E1 válido (este E1 es de la nueva).
+              await finalizarRonda(rondaAbierta.id, new Date(inicioRonda.getTime() + 14400000).toISOString(), estacion.ruta_id); // Cerramos con tiempo límite teórica
+
+              // Dejamos esInicio = true, por lo que el código de abajo creará una NUEVA ronda.
+            }
           }
         }
       }
