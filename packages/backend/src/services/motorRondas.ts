@@ -261,7 +261,7 @@ async function procesarEstacionIntermedia(
     .from('ronda_detalle')
     .select('*, estacion:estaciones(*)')
     .eq('ronda_id', rondaActiva.id)
-    .order('orden', { ascending: false })
+    .order('fecha_hora', { ascending: false })
     .limit(1)
     .single();
 
