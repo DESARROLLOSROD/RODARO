@@ -380,15 +380,28 @@ async function finalizarRonda(rondaId: string, fechaFin: string, rutaId: string)
   }
 
   // Verificar secuencia (E1 al inicio y al final)
-  const detallesOrdenados = detalles?.sort((a, b) => a.orden - b.orden) || [];
+  // IMPORTANTE: Ordenar por fecha_hora para ver el recorrido real
+  const detallesOrdenados = detalles?.sort((a, b) =>
+    new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
+  ) || [];
+
   if (detallesOrdenados.length > 0) {
     const primero = detallesOrdenados[0];
     const ultimo = detallesOrdenados[detallesOrdenados.length - 1];
 
     if (primero.orden !== 1) {
-      estatusFinal = 'INVALIDA';
+      estatusFinal = 'INVALIDA'; // No empezó en E1
     }
-    // El último debería ser E1 también (cierre del ciclo)
+
+    // Validar que termine en E1 para considerarse COMPLETA
+    // Si no termina en E1, sigue siendo INCOMPLETA (o INVALIDA segun regla, pero dejemos INCOMPLETA)
+    if (ultimo.orden !== 1) {
+      estatusFinal = 'INCOMPLETA';
+    } else {
+      // Terminó en E1. Si ya verificamos cobertura de estaciones y tiempos...
+      // Ya calculamos estatusFinal basado en cobertura arriba.
+      // Si cobertura OK, tiempos OK, y fin en E1 -> COMPLETA.
+    }
   }
 
   // Actualizar ronda
