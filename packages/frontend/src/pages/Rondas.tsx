@@ -313,7 +313,8 @@ export default function Rondas() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Fecha/Hora</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Inicio</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Fin</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Vigilante</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Ruta</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Ventana</th>
@@ -327,6 +328,12 @@ export default function Rondas() {
                     <td className="py-3 px-4 text-sm">
                       {ronda.inicio
                         ? format(new Date(ronda.inicio), "d MMM HH:mm", { locale: es })
+                        : '-'
+                      }
+                    </td>
+                    <td className="py-3 px-4 text-sm">
+                      {ronda.fin
+                        ? format(new Date(ronda.fin), "HH:mm", { locale: es })
                         : '-'
                       }
                     </td>
