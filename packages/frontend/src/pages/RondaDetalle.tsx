@@ -143,7 +143,6 @@ export default function RondaDetalle() {
             <div className="space-y-6">
               {detalles.sort((a: any, b: any) => a.orden - b.orden).map((detalle: any, index: number) => {
                 const anterior = index > 0 ? detalles[index - 1] : null;
-                const anterior = index > 0 ? detalles[index - 1] : null;
                 const intervalS = (anterior && anterior.fecha_hora && detalle.fecha_hora)
                   ? Math.round((new Date(detalle.fecha_hora).getTime() - new Date(anterior.fecha_hora).getTime()) / 1000)
                   : null;
