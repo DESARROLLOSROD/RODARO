@@ -148,7 +148,31 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
 
       if (esInicio) {
         if (estacion.orden === 1) {
-          await procesarInicioRonda(evento, estacion, turno, resultado);
+          // VALIDACIÓN ANTI-REBOTE (Debounce):
+          // Verificar si acabamos de cerrar una ronda en esta misma ruta hace poco (ej. < 2 minutos)
+          // Esto evita que un doble escaneo de salida (E1) cree una "Ronda Fantasma" de 0 segundos que quede abierta.
+          const { data: ultimasRondas } = await supabase
+            .from('rondas')
+            .select('fin')
+            .eq('turno_id', turno.id)
+            .eq('ruta_id', estacion.ruta_id)
+            .not('fin', 'is', null) // Solo cerradas
+            .order('fin', { ascending: false })
+            .limit(1);
+
+          let ignorar = false;
+          if (ultimasRondas && ultimasRondas.length > 0) {
+            const finUltima = new Date(ultimasRondas[0].fin);
+            const diffFin = (fechaEvento.getTime() - finUltima.getTime()) / 1000;
+            if (diffFin >= 0 && diffFin < 120) { // Si hace menos de 2 minutos cerramos una, ignoramos este inicio
+              ignorar = true;
+              resultado.errores.push(`Evento ${evento.id} ignorado por rebote (E1 duplicado al cierre).`);
+            }
+          }
+
+          if (!ignorar) {
+            await procesarInicioRonda(evento, estacion, turno, resultado);
+          }
         } else {
           await procesarEstacionIntermedia(evento, estacion, turno, resultado);
         }
