@@ -8,10 +8,19 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
-    "test": "jest"
+    "test": "jest",
+    "script:recalcular": "tsx src/scripts/recalcular_rondas.ts",
+    "script:recalibrar": "tsx src/scripts/recalibrar_full.ts",
+    "script:estaciones": "tsx src/scripts/ver_estaciones.ts",
+    "script:fill-gaps": "tsx src/scripts/fill_gaps.ts",
+    "script:inspect": "tsx src/scripts/inspect_ronda.ts",
+    "script:verify": "tsx src/scripts/final_verify.ts",
+    "script:debug": "tsx src/scripts/debug_datos3.ts",
+    "script:reprocess": "tsx src/scripts/reprocess_history.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.13.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

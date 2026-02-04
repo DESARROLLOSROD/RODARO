@@ -1,8 +1,4 @@
-
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+import { supabase } from '../config/supabase';
 
 async function fillGaps() {
     console.log('Generando rondas NO_REALIZADA para histórico de enero...');
@@ -21,9 +17,9 @@ async function fillGaps() {
         return;
     }
 
-    console.log(`Procesando ${turnos.length} turnos...`);
+    console.log(`Procesando ${(turnos as any[]).length} turnos...`);
 
-    for (const turno of turnos) {
+    for (const turno of (turnos as any[])) {
         const inicioTurno = new Date(turno.inicio);
         const finTurno = new Date(turno.fin);
         const frecuenciaMs = turno.ruta.frecuencia_min * 60 * 1000;

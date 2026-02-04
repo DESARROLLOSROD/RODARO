@@ -121,27 +121,34 @@ export async function procesarEventos(eventos: Evento[]): Promise<ResultadoProce
         if (rondasAbiertas && rondasAbiertas.length > 0) {
           const rondaAbierta = rondasAbiertas[0];
           const inicioRonda = new Date(rondaAbierta.inicio || rondaAbierta.created_at);
-          const diffSegudos = (fechaEvento.getTime() - inicioRonda.getTime()) / 1000;
+          const diffSegundos = (fechaEvento.getTime() - inicioRonda.getTime()) / 1000;
 
-          if (diffSegudos > 60) { // Si pasaron más de 60 segundos
-            // VALIDACIÓN BASADA EN VENTANAS:
-            // Calculamos en qué ventana cae este evento
-            const frecuenciaMs = (estacion.ruta.frecuencia_min || 120) * 60 * 1000;
+          if (diffSegundos > 60) { // Si pasaron más de 60 segundos (Evitar rebote)
+            // VALIDACIÓN BASADA EN VENTANAS Y DURACIÓN:
+            const frecuenciaMin = (estacion.ruta.frecuencia_min || 120);
+            const frecuenciaMs = frecuenciaMin * 60 * 1000;
+            const duracionMaximaRondaSeg = (frecuenciaMs / 1000) * 0.5; // Permitir hasta el 50% de la frecuencia como duración de ronda
+
             const inicioTurno = new Date(turno.inicio);
             const numeroVentanaActual = Math.floor((fechaEvento.getTime() - inicioTurno.getTime()) / frecuenciaMs);
             const numeroVentanaRonda = Math.floor((inicioRonda.getTime() - inicioTurno.getTime()) / frecuenciaMs);
 
-            // Si este evento E1 pertenece a una ventana POSTERIOR a la de la ronda abierta,
-            // asumimos que el guardia está iniciando una NUEVA ronda y la anterior se quedó abierta por error.
-            if (numeroVentanaActual > numeroVentanaRonda) {
-              // Ronda Abandonada detectada. La cerramos forzosamente.
-              const fechaCierreForzado = new Date(inicioRonda.getTime() + (frecuenciaMs * 0.9)).toISOString(); // Cierre estimado al final de su ventana
-              await finalizarRonda(rondaAbierta.id, fechaCierreForzado, estacion.ruta_id);
-              // Dejamos esInicio = true, para crear la nueva ronda abajo.
-            } else {
-              // Sigue en la misma ventana, es un cierre normal (E1 de salida)
+            // Es un CIERRE si:
+            // 1. Está en la misma ventana que el inicio.
+            // 2. Está en una ventana posterior PERO la duración es razonable (la ronda cruzó el límite de la ventana).
+            const esCierreValido = (numeroVentanaActual === numeroVentanaRonda) ||
+                                   (diffSegundos <= duracionMaximaRondaSeg);
+
+            if (esCierreValido) {
+              // Cierre normal (E1 de salida)
               esInicio = false;
               await procesarEstacionIntermedia(evento, estacion, turno, resultado);
+            } else {
+              // Ronda Abandonada detectada. La cerramos forzosamente porque el tiempo transcurrido
+              // sugiere que este E1 es en realidad el inicio de una nueva ronda.
+              const fechaCierreForzado = new Date(inicioRonda.getTime() + (frecuenciaMs * 0.8)).toISOString();
+              await finalizarRonda(rondaAbierta.id, fechaCierreForzado, estacion.ruta_id);
+              // esInicio permanece true para crear la nueva ronda abajo.
             }
           }
         }

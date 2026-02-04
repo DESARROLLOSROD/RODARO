@@ -1,18 +1,17 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import { procesarEventos } from './src/services/motorRondas';
+import { procesarEventos } from '../services/motorRondas';
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 async function runTest() {
     console.log('=== PROCESANDO CASO DE PRUEBA DE USUARIO ===');
 
-    const content = fs.readFileSync('test_case_user.txt', 'utf-8');
+    const content = fs.readFileSync(path.resolve(__dirname, '../../test_case_user.txt'), 'utf-8');
     const lines = content.split('\n').map(l => l.trim()).filter(l => l);
     const eventos: any[] = [];
 
@@ -46,24 +45,10 @@ async function runTest() {
         console.log(`Fin: ${eventos[eventos.length - 1].fecha_hora}`);
     }
 
-    // Ensure these events exist in DB for foreign key constraints if needed?
-    // motorRondas uses 'turnos' and 'estaciones'. 
-    // We assume the TAGS exist in 'estaciones'.
-    // We assume there is a 'turno' covering 2026-01-01.
-    // If not, it will be skipped.
-    // Let's Insert them into 'eventos' table first to mimic real flow?
-    // Or just pass them to logic?
-    // Logic works with objects, but it queries DB for relations.
-    // Let's try passing directly.
-
-    // NOTE: motorRondas checks 'procesado' status if we pulled from DB, 
-    // but here we pass fresh objects.
-
     const resultado = await procesarEventos(eventos);
     console.log('Resultado:', resultado);
 
     // Now verify what happened in DB
-    // We can query 'rondas' for this date
     if (eventos.length > 0) {
         const start = new Date(eventos[0].fecha_hora);
         start.setMinutes(start.getMinutes() - 10);
@@ -78,7 +63,7 @@ async function runTest() {
 
         console.log('\n--- RONDAS GENERADAS ---');
         if (rondas && rondas.length > 0) {
-            rondas.forEach(r => {
+            (rondas as any[]).forEach(r => {
                 console.log(`ID: ${r.id}`);
                 console.log(`Estatus: ${r.estatus}`);
                 console.log(`Inicio: ${r.inicio}`);
