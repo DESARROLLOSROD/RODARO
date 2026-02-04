@@ -138,9 +138,8 @@ CREATE TABLE IF NOT EXISTS ronda_detalle (
     fecha_hora TIMESTAMPTZ,
     diferencia_seg INTEGER, -- Diferencia vs tiempo esperado
     estatus estatus_detalle NOT NULL DEFAULT 'OMITIDO',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-
-    CONSTRAINT uq_ronda_estacion UNIQUE (ronda_id, estacion_id)
+    created_at TIMESTAMPTZ DEFAULT NOW()
+    -- Se eliminó uq_ronda_estacion para permitir E1 al inicio y al final de la ronda
 );
 
 -- Índices para ronda_detalle

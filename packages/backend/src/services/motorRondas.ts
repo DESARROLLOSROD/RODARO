@@ -358,39 +358,36 @@ async function agregarDetalleRonda(
     estatus = 'RETRASADO';
   }
 
-  // Verificar si ya existe detalle para esta estación en esta ronda
-  const { data: detalleExistente } = await supabase
+  // VALIDACIÓN ANTI-REBOTE LOCAL (Misma Estación):
+  // Evitar insertar el mismo punto si se escaneó dos veces seguidas muy rápido (< 30s)
+  const { data: ultimoDetalleMismaEstacion } = await supabase
     .from('ronda_detalle')
-    .select('id')
+    .select('fecha_hora')
     .eq('ronda_id', rondaId)
     .eq('estacion_id', estacion.id)
-    .single();
+    .order('fecha_hora', { ascending: false })
+    .limit(1);
 
-  if (detalleExistente) {
-    // Actualizar existente
-    await supabase
-      .from('ronda_detalle')
-      .update({
-        evento_id: evento.id,
-        fecha_hora: evento.fecha_hora,
-        diferencia_seg: diferenciaSeg,
-        estatus
-      })
-      .eq('id', detalleExistente.id);
-  } else {
-    // Crear nuevo
-    await supabase
-      .from('ronda_detalle')
-      .insert({
-        ronda_id: rondaId,
-        estacion_id: estacion.id,
-        evento_id: evento.id,
-        orden: estacion.orden,
-        fecha_hora: evento.fecha_hora,
-        diferencia_seg: diferenciaSeg,
-        estatus
-      });
+  if (ultimoDetalleMismaEstacion && ultimoDetalleMismaEstacion.length > 0) {
+    const diff = (new Date(evento.fecha_hora).getTime() - new Date(ultimoDetalleMismaEstacion[0].fecha_hora).getTime()) / 1000;
+    if (diff < 30) {
+      // Ignorar duplicado inmediato
+      return;
+    }
   }
+
+  // Insertar siempre (Permite múltiples visitas, necesario para E1 inicio y E1 fin)
+  await supabase
+    .from('ronda_detalle')
+    .insert({
+      ronda_id: rondaId,
+      estacion_id: estacion.id,
+      evento_id: evento.id,
+      orden: estacion.orden,
+      fecha_hora: evento.fecha_hora,
+      diferencia_seg: diferenciaSeg,
+      estatus
+    });
 }
 
 async function finalizarRonda(rondaId: string, fechaFin: string, rutaId: string) {
@@ -408,23 +405,26 @@ async function finalizarRonda(rondaId: string, fechaFin: string, rutaId: string)
     .eq('ronda_id', rondaId);
 
   const totalEstaciones = estaciones?.length || 0;
-  const detallesRegistrados = detalles?.length || 0;
+
+  // Contar estaciones únicas visitadas
+  const estacionesVisitadas = new Set(detalles?.map(d => d.estacion_id));
+  const totalUniqueVisitadas = estacionesVisitadas.size;
 
   // Determinar estatus final
   let estatusFinal = 'COMPLETA';
 
-  // Verificar si faltan estaciones
-  if (detallesRegistrados < totalEstaciones) {
+  // 1. Verificar si faltan estaciones únicas
+  if (totalUniqueVisitadas < totalEstaciones) {
     estatusFinal = 'INCOMPLETA';
   }
 
-  // Verificar si hay retrasados
+  // 2. Verificar si hay retrasados
   const tieneRetrasados = detalles?.some(d => d.estatus === 'RETRASADO');
   if (tieneRetrasados) {
     estatusFinal = 'INCOMPLETA';
   }
 
-  // Verificar secuencia (E1 al inicio y al final)
+  // 3. Verificar secuencia (E1 al inicio y al final)
   // IMPORTANTE: Ordenar por fecha_hora para ver el recorrido real
   const detallesOrdenados = detalles?.sort((a, b) =>
     new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
@@ -438,15 +438,12 @@ async function finalizarRonda(rondaId: string, fechaFin: string, rutaId: string)
       estatusFinal = 'INVALIDA'; // No empezó en E1
     }
 
-    // Validar que termine en E1 para considerarse COMPLETA
-    // Si no termina en E1, sigue siendo INCOMPLETA (o INVALIDA segun regla, pero dejemos INCOMPLETA)
+    // Validar que termine en E1 para considerarse COMPLETA o no INCOMPLETA
     if (ultimo.orden !== 1) {
       estatusFinal = 'INCOMPLETA';
-    } else {
-      // Terminó en E1. Si ya verificamos cobertura de estaciones y tiempos...
-      // Ya calculamos estatusFinal basado en cobertura arriba.
-      // Si cobertura OK, tiempos OK, y fin en E1 -> COMPLETA.
     }
+  } else {
+    estatusFinal = 'INVALIDA';
   }
 
   // Actualizar ronda

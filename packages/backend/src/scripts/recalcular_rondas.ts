@@ -123,12 +123,15 @@ async function recalcularRondas() {
         .eq('activa', true);
 
       const totalEstaciones = estaciones?.length || 0;
-      const detallesRegistrados = detalles.length;
+
+      // Contar estaciones únicas visitadas
+      const estacionesVisitadas = new Set(detalles.map(d => (d as any).estacion?.id || (d as any).estacion_id));
+      const totalUniqueVisitadas = estacionesVisitadas.size;
 
       let nuevoEstatusRonda = ronda.estatus;
 
       // Si la ronda estaba INCOMPLETA solo por retrasados, verificar si ahora está completa
-      if (ronda.estatus === 'INCOMPLETA' && !tieneRetrasados && detallesRegistrados >= totalEstaciones) {
+      if (ronda.estatus === 'INCOMPLETA' && !tieneRetrasados && totalUniqueVisitadas >= totalEstaciones) {
         nuevoEstatusRonda = 'COMPLETA';
       } else if (tieneRetrasados && ronda.estatus === 'COMPLETA') {
         nuevoEstatusRonda = 'INCOMPLETA';
