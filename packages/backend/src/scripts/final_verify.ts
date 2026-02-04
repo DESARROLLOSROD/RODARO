@@ -1,8 +1,4 @@
-
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+import { supabase } from '../config/supabase';
 
 async function verifyFinalDetails() {
     const { data: details, error } = await supabase
@@ -16,11 +12,11 @@ async function verifyFinalDetails() {
         return;
     }
 
-    let lastTime = null;
-    let lastRondaId = null;
+    let lastTime: Date | null = null;
+    let lastRondaId: string | null = null;
 
     console.log('--- VERIFICACIÓN PUNTO A PUNTO ---');
-    details.forEach(d => {
+    (details as any[])?.forEach(d => {
         if (d.ronda_id !== lastRondaId) {
             console.log(`\nNueva Ronda: ${d.ronda_id}`);
             lastTime = null;
@@ -34,7 +30,7 @@ async function verifyFinalDetails() {
             // Para E1, calcDiff es vs ventana (complicado de verificar aquí sin la ronda)
             console.log(`Ord ${d.orden}: E1 - Diff DB: ${d.diferencia_seg}`);
         } else if (lastTime) {
-            const interval = Math.round((currentTime - lastTime) / 1000);
+            const interval = Math.round((currentTime.getTime() - lastTime.getTime()) / 1000);
             const expected = d.estaciones.tiempo_esperado_seg || 0;
             calcDiff = interval - expected;
             const match = calcDiff === d.diferencia_seg;

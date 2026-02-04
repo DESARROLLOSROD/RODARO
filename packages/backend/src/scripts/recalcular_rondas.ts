@@ -2,16 +2,10 @@
  * Script para recalcular diferencias de todas las rondas existentes
  * Corrige el bug donde los tiempos se acumulaban en lugar de calcularse punto a punto
  *
- * Ejecutar: node recalcular_rondas.js
+ * Ejecutar: npx tsx src/scripts/recalcular_rondas.ts
  */
 
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
-);
+import { supabase } from '../config/supabase';
 
 async function recalcularRondas() {
   console.log('=== RECALCULANDO RONDAS ===\n');
@@ -37,7 +31,7 @@ async function recalcularRondas() {
   let rondasCorregidas = 0;
   let detallesCorregidos = 0;
 
-  for (const ronda of rondas) {
+  for (const ronda of rondas || []) {
     // Obtener detalles de la ronda con información de estaciones
     const { data: detalles, error: errorDetalles } = await supabase
       .from('ronda_detalle')
@@ -64,25 +58,18 @@ async function recalcularRondas() {
     let tieneRetrasados = false;
 
     for (let i = 0; i < detalles.length; i++) {
-      const detalle = detalles[i];
+      const detalle = detalles[i] as any;
 
       if (!detalle.fecha_hora || !detalle.estacion) continue;
 
-      let nuevaDiferencia;
+      let nuevaDiferencia: number;
 
       if (i === 0) {
         // Primera estación: diferencia desde inicio de ronda
-        if (ronda.inicio) {
-          const fechaInicio = new Date(ronda.inicio);
-          const fechaDetalle = new Date(detalle.fecha_hora);
-          // Para E1, la diferencia es 0 (es el punto de partida)
-          nuevaDiferencia = 0;
-        } else {
-          nuevaDiferencia = 0;
-        }
+        nuevaDiferencia = 0;
       } else {
         // Estaciones intermedias: calcular intervalo punto a punto
-        const detalleAnterior = detalles[i - 1];
+        const detalleAnterior = detalles[i - 1] as any;
 
         if (detalleAnterior.fecha_hora && detalleAnterior.estacion) {
           const fechaAnterior = new Date(detalleAnterior.fecha_hora);

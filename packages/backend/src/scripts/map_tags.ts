@@ -1,9 +1,8 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -15,7 +14,7 @@ async function mapTags() {
 
     console.log('--- MAPA DE ESTACIONES ---');
     if (estaciones) {
-        estaciones.forEach(e => {
+        (estaciones as any[]).forEach(e => {
             console.log(`Orden ${e.orden}: [${e.tag}] ${e.nombre}`);
         });
     }

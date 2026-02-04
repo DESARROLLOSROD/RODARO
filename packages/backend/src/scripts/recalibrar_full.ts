@@ -1,20 +1,14 @@
+import axios from 'axios';
+import { supabase } from '../config/supabase';
 
-const { createClient } = require('@supabase/supabase-js');
-const axios = require('axios');
-require('dotenv').config();
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const AGENT_API_TOKEN = process.env.AGENT_API_TOKEN;
-const API_URL = 'http://localhost:3001/api';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
 async function recalibrarTodo() {
     console.log('Reiniciando estado de procesamiento...');
     const { error: resetError } = await supabase
         .from('eventos')
-        .update({ procesado: false })
+        .update({ procesado: false } as any)
         .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (resetError) {
@@ -33,7 +27,7 @@ async function recalibrarTodo() {
         console.log('Procesando lote de 500 eventos...');
         try {
             const response = await axios.post(`${API_URL}/eventos/reprocesar`, {}, {
-                headers: { 'x-agent-token': AGENT_API_TOKEN }
+                headers: { 'x-agent-token': AGENT_API_TOKEN || '' }
             });
 
             const { data } = response;
@@ -53,7 +47,7 @@ async function recalibrarTodo() {
                 console.log('Atención: Hay pendientes pero no se procesó nada. Saliendo para evitar loop infinito.');
                 break;
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error en el reprocesamiento:', e.message);
             break;
         }
