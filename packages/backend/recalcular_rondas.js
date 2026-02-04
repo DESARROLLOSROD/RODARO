@@ -89,10 +89,8 @@ async function recalcularRondas() {
           const fechaActual = new Date(detalle.fecha_hora);
           const tiempoReal = Math.round((fechaActual.getTime() - fechaAnterior.getTime()) / 1000);
 
-          // Calcular intervalo esperado (diferencia entre tiempos acumulados)
-          const tiempoEsperadoAnterior = detalleAnterior.estacion.tiempo_esperado_seg || 0;
-          const tiempoEsperadoActual = detalle.estacion.tiempo_esperado_seg || 0;
-          const intervaloEsperado = tiempoEsperadoActual - tiempoEsperadoAnterior;
+          // Calcular intervalo esperado (tiempo desde estación anterior)
+          const intervaloEsperado = detalle.estacion.tiempo_esperado_seg || 0;
 
           nuevaDiferencia = tiempoReal - intervaloEsperado;
         } else {
