@@ -121,15 +121,25 @@ async function fixRounds() {
         let nuevoEstatusRonda = ronda.estatus;
 
         // Recalculate Round Status completely
-        if ((detalles as any[]).length < totalEstaciones) {
+        const uniqueVisited = new Set((detalles as any[]).map(d => d.estacion?.id || d.estacion_id)).size;
+
+        if (uniqueVisited < totalEstaciones) {
             nuevoEstatusRonda = 'INCOMPLETA';
         } else if (tieneRetrasados) {
             nuevoEstatusRonda = 'INCOMPLETA';
         } else {
-            // Verificar Orden
-            const ordenados = (detalles as any[]).sort((a, b) => a.orden - b.orden);
-            if (ordenados[0].orden !== 1) {
+            // Verificar secuencia (Ordenar por fecha_hora)
+            const ordenadosPorTiempo = (detalles as any[]).sort((a, b) =>
+                new Date(a.fecha_hora).getTime() - new Date(b.fecha_hora).getTime()
+            );
+
+            const primero = ordenadosPorTiempo[0];
+            const ultimo = ordenadosPorTiempo[ordenadosPorTiempo.length - 1];
+
+            if (primero.orden !== 1) {
                 nuevoEstatusRonda = 'INVALIDA';
+            } else if (ultimo.orden !== 1) {
+                nuevoEstatusRonda = 'INCOMPLETA';
             } else {
                 nuevoEstatusRonda = 'COMPLETA';
             }
